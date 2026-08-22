@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -12,7 +12,8 @@ import {
   ChevronRight,
   ShieldCheck,
   UserCheck,
-  User as UserIcon
+  User as UserIcon,
+  LogOut
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 import { UserRole } from '../../types';
@@ -24,7 +25,8 @@ export const Sidebar: React.FC = () => {
     currentUser,
     activeTab,
     setActiveTab,
-    setIsCopilotOpen
+    setIsCopilotOpen,
+    logout
   } = useHRMS();
 
   const navItems = [
@@ -32,7 +34,7 @@ export const Sidebar: React.FC = () => {
     { id: 'employees', label: 'Employees', icon: Users, badge: '10' },
     { id: 'attendance', label: 'Attendance', icon: Clock, badge: 'Live' },
     { id: 'leaves', label: 'Leave Management', icon: CalendarCheck, alert: true },
-    { id: 'payroll', label: 'Payroll & Slips', icon: CreditCard },
+    { id: 'payroll', label: 'Payroll & Slips (₹)', icon: CreditCard },
     { id: 'org-chart', label: 'Org Hierarchy', icon: Network },
     { id: 'copilot', label: 'AI HR Copilot', icon: Sparkles, highlight: true },
     { id: 'audit', label: 'Audit Trail', icon: ShieldAlert, adminOnly: true },
@@ -56,7 +58,7 @@ export const Sidebar: React.FC = () => {
                 HRMS
               </span>
             </div>
-            <p className="text-[11px] text-slate-muted font-medium">Odoo-Inspired Platform</p>
+            <p className="text-[11px] text-slate-muted font-medium">Odoo India Edition (₹)</p>
           </div>
         </div>
 
@@ -166,20 +168,20 @@ export const Sidebar: React.FC = () => {
                   ? 'bg-brand-blue text-white shadow-sm font-bold'
                   : 'text-slate-muted hover:text-slate-dark'
               }`}
-              title="Alex Rivera (Lead Engineer)"
+              title="John Doe (Lead Engineer)"
             >
               Emp.
             </button>
           </div>
         </div>
 
-        {/* User Mini Profile */}
-        <div
-          onClick={() => setActiveTab('employees')}
-          className="flex items-center justify-between p-2 rounded-xl bg-surface-bg hover:bg-brand-light/40 border border-surface-border cursor-pointer transition-colors"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative">
+        {/* User Mini Profile with Logout Action */}
+        <div className="flex items-center justify-between p-2 rounded-xl bg-surface-bg border border-surface-border">
+          <div
+            onClick={() => setActiveTab('employees')}
+            className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
+          >
+            <div className="relative flex-shrink-0">
               <img
                 src={currentUser.avatarUrl}
                 alt={currentUser.name}
@@ -189,10 +191,17 @@ export const Sidebar: React.FC = () => {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-dark truncate">{currentUser.name}</p>
-              <p className="text-[11px] text-slate-muted truncate">{currentUser.designation}</p>
+              <p className="text-[10px] text-slate-muted font-mono truncate">{currentUser.loginId || currentUser.designation}</p>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-light flex-shrink-0" />
+          
+          <button
+            onClick={logout}
+            className="p-2 rounded-lg text-slate-400 hover:text-accent-rose hover:bg-rose-50 transition-colors ml-1"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Users, UserCheck, CalendarOff, DollarSign, ArrowUpRight } from 'lucide-react';
+﻿import React from 'react';
+import { Users, UserCheck, CalendarOff, CreditCard, ArrowUpRight } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 
 interface MetricCardProps {
@@ -20,23 +20,23 @@ export const MetricsRow: React.FC = () => {
   const presentCount = liveAnalytics?.metrics?.presentToday ?? attendanceRecords.filter(r => r.status === 'PRESENT').length;
   const presentPct = liveAnalytics?.metrics?.presentRate ?? (totalEmps > 0 ? +(presentCount / totalEmps * 100).toFixed(1) : 92.4);
   const onLeaveCount = liveAnalytics?.metrics?.onLeave ?? leaveRequests.filter(r => r.status === 'APPROVED' || r.status === 'PENDING').length;
-  const avgSalaryVal = liveAnalytics?.metrics?.averageSalary ?? 84250;
+  const avgSalaryVal = liveAnalytics?.metrics?.averageSalary ?? 78500;
 
   const metrics: MetricCardProps[] = [
     {
       title: 'Total Employees',
-      value: totalEmps.toLocaleString(),
-      subValue: '12 new this month',
+      value: totalEmps.toLocaleString('en-IN'),
+      subValue: '10 active on payroll',
       growth: '+13.2%',
       growthPositive: true,
       ringColor: '#007BFF', // Primary Brand Blue
-      ringPercent: Math.min(100, Math.round((totalEmps / 1500) * 100) || 88),
+      ringPercent: Math.min(100, Math.round((totalEmps / 20) * 100) || 88),
       icon: Users,
     },
     {
       title: 'Present Today',
-      value: presentCount.toLocaleString(),
-      subValue: `${presentPct}% occupancy`,
+      value: presentCount.toLocaleString('en-IN'),
+      subValue: `${presentPct}% attendance`,
       growth: '+2.8%',
       growthPositive: true,
       ringColor: '#00D2D3', // Cyan / Teal
@@ -45,23 +45,23 @@ export const MetricsRow: React.FC = () => {
     },
     {
       title: 'On Leave',
-      value: onLeaveCount.toLocaleString(),
+      value: onLeaveCount.toLocaleString('en-IN'),
       subValue: 'Approved & Pending',
       growth: '-1.4%',
       growthPositive: true,
       ringColor: '#FF9F43', // Warm Amber
-      ringPercent: Math.min(100, onLeaveCount * 10),
+      ringPercent: Math.min(100, onLeaveCount * 15),
       icon: CalendarOff,
     },
     {
-      title: 'Average Salary',
-      value: `$${avgSalaryVal.toLocaleString()}`,
-      subValue: 'Per annum / FTE',
+      title: 'Average Gross Salary',
+      value: `₹${avgSalaryVal.toLocaleString('en-IN')}`,
+      subValue: 'Per month / FTE',
       growth: '+4.2%',
       growthPositive: true,
       ringColor: '#A4B0F5', // Soft Lavender
       ringPercent: 74,
-      icon: DollarSign,
+      icon: CreditCard,
     }
   ];
 
@@ -116,7 +116,7 @@ export const MetricsRow: React.FC = () => {
 
             {/* Metric Value */}
             <div className="mb-2">
-              <h3 className="text-2xl font-extrabold text-slate-dark tracking-tight">
+              <h3 className="text-2xl font-extrabold text-slate-dark tracking-tight font-mono">
                 {card.value}
               </h3>
             </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   X,
   Printer,
@@ -20,15 +20,18 @@ export const PayslipModal: React.FC = () => {
     window.print();
   };
 
+  const earnings = selectedPayslip.earnings;
+  const deductions = selectedPayslip.deductions;
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-dark/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-surface-border rounded-2xl shadow-float w-full max-w-2xl overflow-hidden animate-scale-in my-8">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white border border-surface-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in my-8">
         
         {/* Modal Top Actions (Hidden in Print) */}
         <div className="no-print bg-surface-bg border-b border-surface-border p-4 px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-dark text-sm">Official Payslip Preview</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-accent-mint-light text-accent-mint border border-accent-mint/30">
+            <span className="font-extrabold text-slate-dark text-sm">Official Indian Payslip (₹ INR)</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent-mint-light text-accent-mint border border-accent-mint/30">
               Verified & Signed
             </span>
           </div>
@@ -51,7 +54,7 @@ export const PayslipModal: React.FC = () => {
         </div>
 
         {/* Printable Payslip Document Container */}
-        <div id="printable-payslip" className="p-8 text-slate-dark bg-white space-y-6">
+        <div id="printable-payslip" className="p-8 text-slate-dark bg-white space-y-5">
           
           {/* Header & Company Letterhead */}
           <div className="flex items-start justify-between border-b-2 border-brand-blue pb-5">
@@ -61,20 +64,20 @@ export const PayslipModal: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-xl font-black text-slate-dark tracking-tight">
-                  Dayflow Technologies Inc.
+                  Dayflow Technologies India Pvt. Ltd.
                 </h1>
                 <p className="text-xs text-slate-muted">
-                  500 Howard Street, Suite 400 · San Francisco, CA 94105
+                  Bandra-Kurla Complex (BKC), G-Block &bull; Mumbai, Maharashtra 400051
                 </p>
                 <p className="text-[10px] text-slate-light font-mono">
-                  EIN: 84-2910482 · HR Payroll Division
+                  CIN: U72200MH2021PTC123456 &bull; GSTIN: 27AABCD1234F1ZK
                 </p>
               </div>
             </div>
 
             <div className="text-right">
               <div className="text-xs font-bold uppercase tracking-wider text-brand-blue">
-                Confidential Payslip
+                Salary Statement
               </div>
               <div className="text-sm font-black font-mono mt-0.5">
                 {selectedPayslip.month}
@@ -93,8 +96,8 @@ export const PayslipModal: React.FC = () => {
                 <strong className="text-slate-dark">{selectedPayslip.employeeName}</strong>
               </div>
               <div>
-                <span className="text-slate-muted">Employee ID:</span>{' '}
-                <strong className="text-slate-dark font-mono">{selectedPayslip.employeeCode}</strong>
+                <span className="text-slate-muted">Login / Staff ID:</span>{' '}
+                <strong className="text-brand-blue font-mono">{selectedPayslip.loginId || selectedPayslip.employeeCode}</strong>
               </div>
               <div>
                 <span className="text-slate-muted">Designation:</span>{' '}
@@ -108,158 +111,151 @@ export const PayslipModal: React.FC = () => {
 
             <div className="space-y-1.5">
               <div>
-                <span className="text-slate-muted">Disbursement Date:</span>{' '}
-                <strong className="text-slate-dark font-mono">{selectedPayslip.payDate}</strong>
-              </div>
-              <div>
                 <span className="text-slate-muted">Bank Account:</span>{' '}
                 <strong className="text-slate-dark font-mono">{selectedPayslip.bankAccount}</strong>
               </div>
               <div>
-                <span className="text-slate-muted">Tax PAN:</span>{' '}
+                <span className="text-slate-muted">IFSC Code:</span>{' '}
+                <strong className="text-slate-dark font-mono">{selectedPayslip.ifscCode || 'HDFC0001234'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-muted">PAN Number:</span>{' '}
                 <strong className="text-slate-dark font-mono">{selectedPayslip.panNumber}</strong>
               </div>
               <div>
-                <span className="text-slate-muted">Paid Days:</span>{' '}
-                <strong className="text-slate-dark font-mono">22 / 22 Working Days</strong>
+                <span className="text-slate-muted">UAN / EPFO:</span>{' '}
+                <strong className="text-slate-dark font-mono">{selectedPayslip.uanNumber}</strong>
               </div>
             </div>
           </div>
 
-          {/* Itemized Earnings vs Deductions Table */}
-          <div className="grid grid-cols-2 gap-4">
-            
-            {/* Earnings Column */}
-            <div className="border border-surface-border rounded-xl overflow-hidden text-xs">
-              <div className="bg-surface-bg p-2.5 font-extrabold text-slate-dark border-b border-surface-border flex justify-between">
+          {/* Working Days Summary */}
+          <div className="grid grid-cols-3 gap-2 text-center text-xs bg-surface-bg/60 p-2.5 rounded-xl border border-surface-border">
+            <div>
+              <span className="text-slate-muted block text-[10px] uppercase font-bold">Total Days</span>
+              <strong className="font-mono">{selectedPayslip.workingDays}</strong>
+            </div>
+            <div>
+              <span className="text-slate-muted block text-[10px] uppercase font-bold">Days Worked</span>
+              <strong className="font-mono text-accent-mint">{selectedPayslip.daysWorked}</strong>
+            </div>
+            <div>
+              <span className="text-slate-muted block text-[10px] uppercase font-bold">Disbursement Date</span>
+              <strong className="font-mono">{selectedPayslip.payDate}</strong>
+            </div>
+          </div>
+
+          {/* Earnings & Deductions Tables */}
+          <div className="grid grid-cols-2 gap-4 text-xs">
+            {/* Earnings */}
+            <div className="border border-surface-border rounded-xl overflow-hidden">
+              <div className="bg-brand-light px-3.5 py-2 font-extrabold text-brand-blue flex justify-between">
                 <span>Earnings Breakdown</span>
-                <span>Amount (USD)</span>
+                <span>Amount (₹)</span>
               </div>
-              <div className="divide-y divide-surface-border p-2 space-y-1">
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Basic Pay (50%)</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.earnings.basic.toLocaleString()}</span>
+              <div className="divide-y divide-surface-border p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-muted">Basic Salary</span>
+                  <span className="font-mono font-semibold">₹{earnings.basic.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>House Rent Allowance (HRA)</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.earnings.hra.toLocaleString()}</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">House Rent Allowance (HRA)</span>
+                  <span className="font-mono font-semibold">₹{earnings.hra.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Conveyance Allowance</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.earnings.conveyance.toLocaleString()}</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Conveyance Allowance</span>
+                  <span className="font-mono font-semibold">₹{earnings.conveyance.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Special Allowance</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.earnings.specialAllowance.toLocaleString()}</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Special Allowance</span>
+                  <span className="font-mono font-semibold">₹{earnings.specialAllowance.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Performance Incentive Bonus</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.earnings.performanceBonus.toLocaleString()}</span>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Performance Incentive</span>
+                  <span className="font-mono font-semibold">₹{earnings.performanceBonus.toLocaleString('en-IN')}</span>
                 </div>
-              </div>
-              <div className="bg-brand-light/40 p-2.5 font-bold text-slate-dark border-t border-brand-subtle flex justify-between">
-                <span>Gross Total Earnings</span>
-                <span className="font-mono text-brand-blue">${selectedPayslip.earnings.grossTotal.toLocaleString()}</span>
-              </div>
-            </div>
-
-            {/* Deductions Column */}
-            <div className="border border-surface-border rounded-xl overflow-hidden text-xs">
-              <div className="bg-surface-bg p-2.5 font-extrabold text-slate-dark border-b border-surface-border flex justify-between">
-                <span>Deductions</span>
-                <span>Amount (USD)</span>
-              </div>
-              <div className="divide-y divide-surface-border p-2 space-y-1">
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Provident Fund (PF - 12%)</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.deductions.providentFund.toLocaleString()}</span>
+                <div className="flex justify-between pt-2 font-bold text-slate-dark border-t border-surface-border">
+                  <span>Gross Earnings</span>
+                  <span className="font-mono text-brand-blue">₹{earnings.grossTotal.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Professional Tax</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.deductions.professionalTax.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Income Tax (TDS Deduction)</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.deductions.incomeTaxTDS.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between py-1 text-slate-muted">
-                  <span>Group Health Insurance</span>
-                  <span className="font-mono font-semibold text-slate-dark">${selectedPayslip.deductions.healthInsurance.toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="bg-accent-rose-light/40 p-2.5 font-bold text-slate-dark border-t border-accent-rose/20 flex justify-between mt-auto">
-                <span>Total Deductions</span>
-                <span className="font-mono text-accent-rose">-${selectedPayslip.deductions.totalDeductions.toLocaleString()}</span>
               </div>
             </div>
 
+            {/* Deductions */}
+            <div className="border border-surface-border rounded-xl overflow-hidden">
+              <div className="bg-accent-amber-light px-3.5 py-2 font-extrabold text-accent-amber flex justify-between">
+                <span>Statutory Deductions</span>
+                <span>Amount (₹)</span>
+              </div>
+              <div className="divide-y divide-surface-border p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-muted">Provident Fund (EPF 12%)</span>
+                  <span className="font-mono font-semibold">₹{deductions.employeePF.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Professional Tax (PT)</span>
+                  <span className="font-mono font-semibold">₹{deductions.professionalTax.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Income Tax (TDS)</span>
+                  <span className="font-mono font-semibold">₹{deductions.incomeTaxTDS.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">ESI Contribution</span>
+                  <span className="font-mono font-semibold">₹{(deductions.esi || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="text-slate-muted">Group Health Insurance</span>
+                  <span className="font-mono font-semibold">₹{deductions.healthInsurance.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex justify-between pt-2 font-bold text-slate-dark border-t border-surface-border">
+                  <span>Total Deductions</span>
+                  <span className="font-mono text-accent-rose">₹{deductions.totalDeductions.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Net Salary Highlight Box */}
-          <div className="bg-gradient-to-r from-brand-blue to-accent-cyan rounded-xl p-4 text-white flex items-center justify-between">
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 rounded-2xl flex items-center justify-between">
             <div>
-              <div className="text-xs uppercase font-bold text-white/85">Net Disbursed Take-Home Pay</div>
-              <div className="text-2xl font-black font-mono mt-0.5">
-                ${selectedPayslip.netPayable.toLocaleString()} USD
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Net Salary Payable</span>
+              <div className="text-2xl font-black font-mono text-accent-mint mt-0.5">
+                ₹{selectedPayslip.netPayable.toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-white/90 italic mt-0.5">
-                {selectedPayslip.netPayableWords}
-              </div>
+              <p className="text-[10px] text-slate-300 italic mt-0.5">{selectedPayslip.netPayableWords}</p>
             </div>
 
             <div className="text-right">
-              <span className="px-3 py-1 rounded-full bg-white text-brand-blue font-bold text-xs shadow-sm">
-                DIRECT DEPOSIT VERIFIED
-              </span>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Payment Status</span>
+              <div className="flex items-center gap-1.5 text-accent-mint font-bold text-sm mt-0.5">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Disbursed</span>
+              </div>
             </div>
           </div>
 
-          {/* Digital Signature & QR Verification Section */}
-          <div className="pt-4 border-t border-surface-border flex items-center justify-between text-xs">
+          {/* Footer & Digital QR Authentication */}
+          <div className="flex items-center justify-between pt-3 border-t border-surface-border text-[11px] text-slate-muted">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-surface-bg border border-surface-border rounded-lg flex items-center justify-center p-1">
-                {/* Simulated QR Pattern */}
-                <div className="grid grid-cols-4 gap-0.5 w-full h-full p-1 bg-white">
-                  <div className="bg-slate-dark rounded-xs" /><div className="bg-slate-dark rounded-xs" /><div className="bg-white" /><div className="bg-slate-dark rounded-xs" />
-                  <div className="bg-slate-dark rounded-xs" /><div className="bg-white" /><div className="bg-slate-dark rounded-xs" /><div className="bg-slate-dark rounded-xs" />
-                  <div className="bg-white" /><div className="bg-slate-dark rounded-xs" /><div className="bg-slate-dark rounded-xs" /><div className="bg-white" />
-                  <div className="bg-slate-dark rounded-xs" /><div className="bg-white" /><div className="bg-slate-dark rounded-xs" /><div className="bg-slate-dark rounded-xs" />
-                </div>
+              <div className="w-12 h-12 rounded-lg bg-surface-bg border border-surface-border flex items-center justify-center p-1">
+                <QrCode className="w-10 h-10 text-slate-dark" />
               </div>
               <div>
-                <div className="font-bold text-slate-dark flex items-center gap-1">
-                  <ShieldCheck className="w-4 h-4 text-accent-mint" />
-                  <span>Verifiable Digital Certificate</span>
-                </div>
-                <p className="text-[10px] text-slate-light font-mono">
-                  SHA-256: 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1f
-                </p>
+                <p className="font-bold text-slate-dark">Digitally Certified by Dayflow Automated Payroll</p>
+                <p className="text-[10px] text-slate-light">Scan QR to authenticate payslip hash on secure ledger.</p>
               </div>
             </div>
 
             <div className="text-right">
-              <div className="font-serif italic font-bold text-brand-blue text-sm">
+              <div className="w-32 border-b border-slate-300 pb-1 text-center font-bold text-slate-dark font-mono text-xs">
                 Marcus Vance
               </div>
-              <div className="text-[10px] text-slate-light">
-                Authorized Signatory · VP of HR
-              </div>
+              <span className="text-[10px] text-slate-light">Authorized Signatory</span>
             </div>
           </div>
 
         </div>
-
-        {/* Modal Footer */}
-        <div className="no-print bg-surface-bg border-t border-surface-border p-4 px-6 flex items-center justify-between text-xs">
-          <span className="text-slate-muted">Click 'Print / Save PDF' to output in A4 format.</span>
-          <button
-            onClick={() => setIsPayslipModalOpen(false)}
-            className="px-4 py-2 rounded-xl bg-slate-200 text-slate-dark font-bold hover:bg-slate-300 transition-colors"
-          >
-            Close Preview
-          </button>
-        </div>
-
       </div>
     </div>
   );

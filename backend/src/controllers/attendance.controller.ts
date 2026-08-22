@@ -4,6 +4,14 @@ import { sendSuccess, sendError } from '../utils/response.util';
 import { AttendanceStatus } from '@prisma/client';
 
 /**
+ * MySQL DATE values are stored without a time zone. Using a UTC midnight value
+ * keeps lookups stable whether the API runs locally or inside Docker.
+ */
+function toWorkDate(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+/**
  * Controller for Attendance & Punch Clock Tracking
  */
 export class AttendanceController {
@@ -22,8 +30,8 @@ export class AttendanceController {
       const employeeId = req.user.employeeId;
       const now = new Date();
 
-      // Normalise today to midnight (start of day) for the unique constraint
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      // Normalise today for the MySQL DATE unique constraint.
+      const startOfDay = toWorkDate(now);
 
       // ─── Check for existing today record ─────────────────────────────────
       const existing = await prisma.attendance.findUnique({
@@ -110,7 +118,7 @@ export class AttendanceController {
       }
 
       const now        = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfDay = toWorkDate(now);
 
       const record = await prisma.attendance.findUnique({
         where: {
@@ -202,11 +210,7 @@ export class AttendanceController {
       const { date, departmentId, status } = req.query;
 
       const targetDate = date ? new Date(date as string) : new Date();
-      const startOfDay = new Date(
-        targetDate.getFullYear(),
-        targetDate.getMonth(),
-        targetDate.getDate()
-      );
+      const startOfDay = toWorkDate(targetDate);
 
       const whereClause: any = { workDate: startOfDay };
 

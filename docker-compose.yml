@@ -13,7 +13,7 @@
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}"]
       interval: 5s
       timeout: 5s
       retries: 10

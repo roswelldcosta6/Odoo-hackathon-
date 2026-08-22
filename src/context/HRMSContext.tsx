@@ -20,11 +20,21 @@ import {
   initialAuditLogs,
   initialNotifications
 } from '../data/mockData';
+import api from '../services/api';
 
 interface HRMSContextType {
+  // Auth & Backend connectivity
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
   currentUser: User;
+  isAuthenticated: boolean;
+  isBackendLive: boolean;
+  authError: string | null;
+  isLoginModalOpen: boolean;
+  setIsLoginModalOpen: (open: boolean) => void;
+  loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
+
   activeTab: string;
   setActiveTab: (tab: string) => void;
   
@@ -34,8 +44,8 @@ interface HRMSContextType {
   setSelectedEmployee: (emp: Employee | null) => void;
   isEmployeeModalOpen: boolean;
   setIsEmployeeModalOpen: (open: boolean) => void;
-  addEmployee: (emp: Omit<Employee, 'id'>) => void;
-  updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
+  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
   
   // Attendance & Punch Clock
   attendanceRecords: AttendanceRecord[];
@@ -46,9 +56,9 @@ interface HRMSContextType {
   punchNetworkType: 'OFFICE_WIFI' | 'REMOTE_IP';
   setPunchNetworkType: (type: 'OFFICE_WIFI' | 'REMOTE_IP') => void;
   streakDays: number;
-  togglePunchClock: () => void;
+  togglePunchClock: () => Promise<void>;
   toggleBreak: () => void;
-  overrideAttendance: (recordId: string, newCheckIn: string, reason: string) => void;
+  overrideAttendance: (recordId: string, newCheckIn: string, reason: string) => Promise<void>;
 
   // Leave Management
   leaveRequests: LeaveRequest[];
@@ -59,8 +69,8 @@ interface HRMSContextType {
     endDate: string;
     reason: string;
     totalDays: number;
-  }) => { success: boolean; hasCollision: boolean; collisionMessage?: string };
-  reviewLeaveRequest: (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => void;
+  }) => Promise<{ success: boolean; hasCollision: boolean; collisionMessage?: string }>;
+  reviewLeaveRequest: (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => Promise<void>;
 
   // Payroll
   payslips: Payslip[];
@@ -69,6 +79,20 @@ interface HRMSContextType {
   isPayslipModalOpen: boolean;
   setIsPayslipModalOpen: (open: boolean) => void;
   processPayrollBatch: (month: string) => void;
+
+  // Live Backend Analytics State
+  liveAnalytics: {
+    metrics?: {
+      totalEmployees: number;
+      presentToday: number;
+      presentRate: number;
+      onLeave: number;
+      averageSalary: number;
+    };
+    attendanceSalaryByUnit?: any[];
+    departmentAnalysis?: any[];
+    employeeStructure?: any[];
+  } | null;
 
   // Audit Logs
   auditLogs: AuditLogItem[];
@@ -101,6 +125,11 @@ const HRMSContext = createContext<HRMSContextType | undefined>(undefined);
 export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
   const [currentUser, setCurrentUser] = useState<User>(mockUsers.ADMIN);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isBackendLive, setIsBackendLive] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   
   const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
@@ -112,7 +141,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isClockedIn, setIsClockedIn] = useState(true);
   const [isBreakActive, setIsBreakActive] = useState(false);
   const [punchInTime, setPunchInTime] = useState('09:14 AM');
-  const [secondsWorkedToday, setSecondsWorkedToday] = useState(6 * 3600 + 45 * 60 + 20); // 6h 45m
+  const [secondsWorkedToday, setSecondsWorkedToday] = useState(6 * 3600 + 45 * 60 + 20);
   const [punchNetworkType, setPunchNetworkType] = useState<'OFFICE_WIFI' | 'REMOTE_IP'>('OFFICE_WIFI');
   const [streakDays, setStreakDays] = useState(5);
 
@@ -130,6 +159,9 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
 
+  // Live backend analytics
+  const [liveAnalytics, setLiveAnalytics] = useState<any | null>(null);
+
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(initialAuditLogs);
 
@@ -143,11 +175,140 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Search
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Switch role handler
+  // 1. Check Backend Health on load and attempt session hydration
+  const checkAndHydrateBackend = async () => {
+    const online = await api.checkHealth();
+    setIsBackendLive(online);
+
+    if (online) {
+      // Fetch live analytics
+      const analyticsRes = await api.analytics.getDashboard();
+      if (analyticsRes.success && analyticsRes.data) {
+        setLiveAnalytics(analyticsRes.data);
+      }
+
+      // Fetch live employees
+      const empRes = await api.employees.getAll();
+      if (empRes.success && Array.isArray(empRes.data) && empRes.data.length > 0) {
+        // Map backend employees to frontend format
+        const mappedEmps: Employee[] = empRes.data.map((e: any) => ({
+          id: e.id,
+          employeeCode: e.employeeCode || `EMP-${e.id.slice(0, 4)}`,
+          firstName: e.firstName,
+          lastName: e.lastName,
+          email: e.personalEmail || e.user?.email || `${e.firstName.toLowerCase()}@dayflow.com`,
+          personalEmail: e.personalEmail || `${e.firstName.toLowerCase()}@example.com`,
+          phone: e.phone || '+1 (555) 019-2834',
+          address: e.address || 'San Francisco HQ',
+          designation: e.designation || 'Staff Member',
+          department: e.department?.name || 'Core Engineering',
+          joiningDate: e.joiningDate ? e.joiningDate.split('T')[0] : '2024-01-15',
+          employmentStatus: e.status || 'ACTIVE',
+          employmentType: 'Full-Time',
+          avatarUrl: e.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          reportingManager: 'Alex Morgan (VP HR)',
+          location: 'San Francisco HQ',
+          attendanceRate: 98.4,
+          performanceRating: e.performanceRating || 'GOOD',
+          salary: {
+            basic: e.payrollStructure?.basicSalary || 65000,
+            hra: e.payrollStructure?.hraAllowance || 26000,
+            specialAllowance: e.payrollStructure?.specialAllowance || 13000,
+            providentFund: e.payrollStructure?.providentFund || 7800,
+            professionalTax: e.payrollStructure?.professionalTax || 200,
+            medicalInsurance: e.payrollStructure?.medicalInsurance || 1000,
+            grossSalary: e.payrollStructure?.grossSalary || 104000,
+            netSalary: e.payrollStructure?.netSalary || 95000
+          },
+          documents: [
+            { id: 'doc-1', name: 'Employment_Agreement.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '2.1 MB', status: 'VERIFIED' }
+          ]
+        }));
+
+        setEmployees(mappedEmps);
+      }
+
+      // Check current token if present
+      const token = api.getToken();
+      if (token) {
+        const meRes = await api.auth.getMe();
+        if (meRes.success && meRes.data?.user) {
+          const u = meRes.data.user;
+          const roleKey = (u.role === 'ADMIN' ? 'ADMIN' : u.role === 'HR_OFFICER' ? 'HR_OFFICER' : 'EMPLOYEE') as UserRole;
+          setCurrentRoleState(roleKey);
+          setCurrentUser({
+            id: u.id,
+            email: u.email,
+            role: roleKey,
+            employeeId: u.employee?.id || 'emp-1',
+            name: `${u.employee?.firstName || 'User'} ${u.employee?.lastName || ''}`.trim() || u.email.split('@')[0],
+            avatarUrl: u.employee?.avatarUrl || mockUsers[roleKey].avatarUrl,
+            designation: u.employee?.designation || mockUsers[roleKey].designation
+          });
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkAndHydrateBackend();
+    const interval = setInterval(() => {
+      api.checkHealth().then(setIsBackendLive);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Login with Credentials via API (with fallback)
+  const loginWithCredentials = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    setAuthError(null);
+    if (isBackendLive) {
+      const res = await api.auth.login({ email, password: pass });
+      if (res.success && res.data) {
+        api.setToken(res.data.token);
+        const u = res.data.user;
+        const roleKey = (u.role === 'ADMIN' ? 'ADMIN' : u.role === 'HR_OFFICER' ? 'HR_OFFICER' : 'EMPLOYEE') as UserRole;
+        setCurrentRoleState(roleKey);
+        setCurrentUser({
+          id: u.id,
+          email: u.email,
+          role: roleKey,
+          employeeId: u.employee?.id || 'emp-1',
+          name: `${u.employee?.firstName || 'User'} ${u.employee?.lastName || ''}`.trim() || u.email.split('@')[0],
+          avatarUrl: u.employee?.avatarUrl || mockUsers[roleKey].avatarUrl,
+          designation: u.employee?.designation || mockUsers[roleKey].designation
+        });
+        setIsAuthenticated(true);
+        addAuditLog('AUTH_LOGIN_LIVE', 'SECURITY', `Authenticated via Backend API as ${email}`);
+        return { success: true };
+      } else {
+        setAuthError(res.error || 'Invalid credentials');
+        return { success: false, error: res.error || 'Invalid credentials' };
+      }
+    } else {
+      // Local fallback
+      let roleKey: UserRole = 'EMPLOYEE';
+      if (email.includes('admin')) roleKey = 'ADMIN';
+      else if (email.includes('hr')) roleKey = 'HR_OFFICER';
+
+      setCurrentRoleState(roleKey);
+      setCurrentUser(mockUsers[roleKey]);
+      setIsAuthenticated(true);
+      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', `Authenticated demo session as ${roleKey}`);
+      return { success: true };
+    }
+  };
+
+  const logout = () => {
+    api.setToken(null);
+    setIsAuthenticated(false);
+    setIsLoginModalOpen(true);
+    addAuditLog('AUTH_LOGOUT', 'SECURITY', `Session ended for ${currentUser.name}`);
+  };
+
+  // Switch role handler (Demo Switcher)
   const setCurrentRole = (role: UserRole) => {
     setCurrentRoleState(role);
     setCurrentUser(mockUsers[role]);
-    // Notify audit
     addAuditLog(
       'ROLE_SWITCH',
       'SECURITY',
@@ -175,22 +336,28 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         origin: { y: 0.6 },
         colors: ['#007BFF', '#00D2D3', '#2ED573', '#FF9F43', '#A4B0F5']
       });
-    } catch (e) {
-      // safe fallback
+    } catch {
+      // fallback
     }
   };
 
   // Punch Clock toggle
-  const togglePunchClock = () => {
+  const togglePunchClock = async () => {
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
+    // Call backend API if live
+    if (isBackendLive) {
+      await api.attendance.punch({
+        networkType: punchNetworkType,
+        remarks: isClockedIn ? 'Punch Out via Web App' : 'Punch In via Web App'
+      });
+    }
+
     if (isClockedIn) {
-      // Clocking out
       setIsClockedIn(false);
       setIsBreakActive(false);
       
-      // Update record in muster roll
       setAttendanceRecords(prev =>
         prev.map(rec =>
           rec.employeeId === currentUser.employeeId
@@ -210,13 +377,11 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         `${currentUser.name} punched OUT at ${timeString}. Total ${(secondsWorkedToday / 3600).toFixed(1)} hrs logged.`
       );
     } else {
-      // Clocking in
       setIsClockedIn(true);
       setPunchInTime(timeString);
       setStreakDays(prev => prev + 1);
       triggerConfetti();
 
-      // Add to attendance
       const isLateCheck = now.getHours() >= 9 && now.getMinutes() > 30;
       const newRec: AttendanceRecord = {
         id: `att-${Date.now()}`,
@@ -243,7 +408,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         `${currentUser.name} punched IN at ${timeString} via ${punchNetworkType === 'OFFICE_WIFI' ? 'Office Wi-Fi (HQ)' : 'Remote Network'}.`
       );
 
-      // Notification
       setNotifications(prev => [
         {
           id: `notif-${Date.now()}`,
@@ -271,7 +435,11 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  const overrideAttendance = (recordId: string, newCheckIn: string, reason: string) => {
+  const overrideAttendance = async (recordId: string, newCheckIn: string, reason: string) => {
+    if (isBackendLive) {
+      await api.attendance.override(recordId, { checkIn: newCheckIn, remarks: reason });
+    }
+
     setAttendanceRecords(prev =>
       prev.map(r => {
         if (r.id === recordId) {
@@ -290,7 +458,20 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Add Employee
-  const addEmployee = (empData: Omit<Employee, 'id'>) => {
+  const addEmployee = async (empData: Omit<Employee, 'id'>) => {
+    if (isBackendLive) {
+      await api.employees.create({
+        email: empData.email,
+        employeeCode: empData.employeeCode,
+        firstName: empData.firstName,
+        lastName: empData.lastName,
+        designation: empData.designation,
+        phone: empData.phone,
+        address: empData.address,
+        basicSalary: empData.salary.basic
+      });
+    }
+
     const newEmp: Employee = {
       ...empData,
       id: `emp-${Date.now()}`
@@ -301,21 +482,13 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       'EMPLOYEE',
       `Provisioned new staff profile for ${newEmp.firstName} ${newEmp.lastName} (${newEmp.department})`
     );
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        title: '👤 New Staff Onboarded',
-        message: `${newEmp.firstName} ${newEmp.lastName} added to ${newEmp.department}.`,
-        timestamp: 'Just now',
-        type: 'INFO',
-        read: false,
-        linkTab: 'employees'
-      },
-      ...prev
-    ]);
   };
 
-  const updateEmployee = (id: string, updates: Partial<Employee>) => {
+  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
+    if (isBackendLive) {
+      await api.employees.update(id, updates);
+    }
+
     setEmployees(prev =>
       prev.map(emp => {
         if (emp.id === id) {
@@ -332,25 +505,22 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  // Apply Leave with Smart Collision Detection Engine!
-  const applyLeave = (leave: {
+  // Apply Leave with Collision Engine
+  const applyLeave = async (leave: {
     leaveType: LeaveRequest['leaveType'];
     startDate: string;
     endDate: string;
     reason: string;
     totalDays: number;
   }) => {
-    // Collision Detection Logic: Check if other employees in the same department are on leave on overlapping dates
     const userEmp = employees.find(e => e.id === currentUser.employeeId) || employees[2];
     const dept = userEmp.department;
     
-    // Check existing approved or pending leaves in same department
     const deptOverlaps = leaveRequests.filter(
       req =>
         req.department === dept &&
         req.status !== 'REJECTED' &&
         req.employeeId !== currentUser.employeeId &&
-        // date overlap check
         ((leave.startDate >= req.startDate && leave.startDate <= req.endDate) ||
           (leave.endDate >= req.startDate && leave.endDate <= req.endDate))
     );
@@ -362,6 +532,15 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (deptOverlaps.length > 0) {
       const names = deptOverlaps.map(d => d.employeeName).join(', ');
       collisionMessage = `⚠️ Bandwidth Alert: ${names} (${dept}) is already off during this period. Department capacity will drop below 60%.`;
+    }
+
+    if (isBackendLive) {
+      await api.leaves.apply({
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        reason: leave.reason,
+        totalDays: leave.totalDays
+      });
     }
 
     const newRequest: LeaveRequest = {
@@ -384,7 +563,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setLeaveRequests(prev => [newRequest, ...prev]);
 
-    // Add notification
     setNotifications(prev => [
       {
         id: `notif-${Date.now()}`,
@@ -412,12 +590,15 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Review Leave
-  const reviewLeaveRequest = (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => {
+  const reviewLeaveRequest = async (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => {
+    if (isBackendLive) {
+      await api.leaves.review(id, { status, reviewerComment: comment });
+    }
+
     const now = new Date().toLocaleString();
     setLeaveRequests(prev =>
       prev.map(req => {
         if (req.id === id) {
-          // If approved, deduct quota for Alex Rivera if it matches
           if (status === 'APPROVED' && req.employeeId === 'emp-3') {
             setUserLeaveBalance(oldBal => {
               if (req.leaveType === 'PAID_ANNUAL') {
@@ -462,19 +643,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return req;
       })
     );
-
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        title: status === 'APPROVED' ? '✅ Leave Approved' : '❌ Leave Rejected',
-        message: `Decision registered for time-off request. Note: ${comment}`,
-        timestamp: 'Just now',
-        type: status === 'APPROVED' ? 'SUCCESS' : 'ALERT',
-        read: false,
-        linkTab: 'leaves'
-      },
-      ...prev
-    ]);
   };
 
   // Process Payroll Batch
@@ -536,19 +704,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       'PAYROLL',
       `Executed electronic salary disbursement batch for ${employees.length} employees for ${month}.`
     );
-
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        title: '💰 Payroll Batch Completed',
-        message: `Successfully processed and disbursed payslips for ${month}.`,
-        timestamp: 'Just now',
-        type: 'SUCCESS',
-        read: false,
-        linkTab: 'payroll'
-      },
-      ...prev
-    ]);
   };
 
   // Add Audit Log helper
@@ -586,6 +741,13 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         currentRole,
         setCurrentRole,
         currentUser,
+        isAuthenticated,
+        isBackendLive,
+        authError,
+        isLoginModalOpen,
+        setIsLoginModalOpen,
+        loginWithCredentials,
+        logout,
         activeTab,
         setActiveTab,
         employees,
@@ -616,6 +778,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isPayslipModalOpen,
         setIsPayslipModalOpen,
         processPayrollBatch,
+        liveAnalytics,
         auditLogs,
         addAuditLog,
         notifications,

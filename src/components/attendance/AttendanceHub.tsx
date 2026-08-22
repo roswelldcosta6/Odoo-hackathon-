@@ -5,17 +5,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Download,
-  Filter,
   Search,
   Wifi,
   Home,
   Edit3,
-  Save,
   X,
-  Play,
-  Square,
-  Coffee,
-  Check,
   Plus
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
@@ -23,26 +17,23 @@ import { AttendanceRecord, AttendanceStatus } from '../../types';
 
 export const AttendanceHub: React.FC = () => {
   const {
-    attendanceRecords,
-    isClockedIn,
-    isBreakActive,
-    punchInTime,
-    secondsWorkedToday,
-    togglePunchClock,
-    toggleBreak,
-    punchNetworkType,
-    setPunchNetworkType,
-    overrideAttendance,
-    recordStaffAttendance,
-    employees,
-    currentRole,
-    currentUser
+    attendanceRecords = [],
+    isClockedIn = false,
+    punchInTime = null,
+    secondsWorkedToday = 0,
+    togglePunchClock = () => {},
+    punchNetworkType = 'OFFICE_WIFI',
+    setPunchNetworkType = () => {},
+    overrideAttendance = () => {},
+    recordStaffAttendance = () => {},
+    employees = [],
+    currentRole = 'ADMIN'
   } = useHRMS();
 
   const [filterDept, setFilterDept] = useState<string>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
+
   // Override modal state
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [overrideTime, setOverrideTime] = useState<string>('');
@@ -57,25 +48,34 @@ export const AttendanceHub: React.FC = () => {
 
   const canManageAttendance = currentRole === 'ADMIN' || currentRole === 'HR_OFFICER';
 
-  const filteredRecords = attendanceRecords.filter(rec => {
-    const matchesDept = filterDept === 'ALL' || rec.department === filterDept;
-    const matchesStatus = filterStatus === 'ALL' || rec.status === filterStatus;
+  // Defensive filtering preventing any .toLowerCase() or .replace() crash
+  const safeRecords = Array.isArray(attendanceRecords) ? attendanceRecords.filter(Boolean) : [];
+
+  const filteredRecords = safeRecords.filter(rec => {
+    const dept = rec.department || '';
+    const status = rec.status || '';
+    const name = rec.employeeName || '';
+    const query = (searchQuery || '').toLowerCase();
+
+    const matchesDept = filterDept === 'ALL' || dept === filterDept;
+    const matchesStatus = filterStatus === 'ALL' || status === filterStatus;
     const matchesSearch =
-      rec.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      rec.department.toLowerCase().includes(searchQuery.toLowerCase());
+      !query ||
+      name.toLowerCase().includes(query) ||
+      dept.toLowerCase().includes(query);
     return matchesDept && matchesStatus && matchesSearch;
   });
 
-  const presentCount = attendanceRecords.filter(r => r.status === 'PRESENT').length;
-  const lateCount = attendanceRecords.filter(r => r.isLate).length;
-  const onLeaveCount = attendanceRecords.filter(r => r.status === 'ON_LEAVE').length;
+  const presentCount = safeRecords.filter(r => r && r.status === 'PRESENT').length;
+  const lateCount = safeRecords.filter(r => r && r.isLate).length;
+  const onLeaveCount = safeRecords.filter(r => r && r.status === 'ON_LEAVE').length;
 
   const handleExportCSV = () => {
     const headers = 'Employee,Department,Date,CheckIn,CheckOut,Hours,Status,Network,IP\n';
-    const rows = attendanceRecords
+    const rows = safeRecords
       .map(
         r =>
-          `"${r.employeeName}","${r.department}","${r.date}","${r.checkIn}","${r.checkOut || '-'}","${r.totalHours}","${r.status}","${r.networkType}","${r.ipAddress}"`
+          `"${r.employeeName || 'Staff'}","${r.department || 'General'}","${r.date || ''}","${r.checkIn || '-'}","${r.checkOut || '-'}","${r.totalHours || 0}","${r.status || 'PRESENT'}","${r.networkType || 'OFFICE_WIFI'}","${r.ipAddress || ''}"`
       )
       .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
@@ -97,15 +97,16 @@ export const AttendanceHub: React.FC = () => {
 
   const handleSaveNewAttendance = (e: React.FormEvent) => {
     e.preventDefault();
-    recordStaffAttendance(selectedEmpId, markStatus, markCheckIn, markStatus === 'PRESENT' ? '06:00 PM' : undefined, markRemarks);
+    recordStaffAttendance(selectedEmpId || (employees[0]?.id || 'emp-1'), markStatus, markCheckIn, markStatus === 'PRESENT' ? '06:00 PM' : undefined, markRemarks);
     setIsAddAttendanceOpen(false);
   };
 
   const formatSecs = (sec: number) => {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    const s = Math.max(0, Number(sec) || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -268,110 +269,118 @@ export const AttendanceHub: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
-              {filteredRecords.map(rec => (
-                <tr key={rec.id} className="hover:bg-surface-hover transition-colors">
-                  {/* Employee */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={rec.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775?w=150'}
-                        alt={rec.employeeName}
-                        className="w-8 h-8 rounded-xl object-cover"
-                      />
-                      <div>
-                        <div className="font-bold text-slate-dark">{rec.employeeName}</div>
-                        <div className="text-[10px] text-slate-light font-mono">{rec.date}</div>
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map(rec => (
+                  <tr key={rec.id} className="hover:bg-surface-hover transition-colors">
+                    {/* Employee */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={rec.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775?w=150'}
+                          alt={rec.employeeName || 'Staff'}
+                          className="w-8 h-8 rounded-xl object-cover bg-slate-200"
+                        />
+                        <div>
+                          <div className="font-bold text-slate-dark">{rec.employeeName || 'Staff Member'}</div>
+                          <div className="text-[10px] text-slate-light font-mono">{rec.date || ''}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Dept & Designation */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-semibold text-slate-dark">{rec.designation}</div>
-                    <div className="text-[10px] text-slate-muted">{rec.department}</div>
-                  </td>
+                    {/* Dept & Designation */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-semibold text-slate-dark">{rec.designation || 'Employee'}</div>
+                      <div className="text-[10px] text-slate-muted">{rec.department || 'Core'}</div>
+                    </td>
 
-                  {/* Check-In */}
-                  <td className="py-3.5 px-4 font-mono font-bold">
-                    <div className="flex items-center gap-1.5">
-                      <span className={rec.isLate ? 'text-accent-amber' : 'text-slate-dark'}>
-                        {rec.checkIn}
-                      </span>
-                      {rec.isLate && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] bg-accent-amber-light text-accent-amber font-bold">
-                          Late
+                    {/* Check-In */}
+                    <td className="py-3.5 px-4 font-mono font-bold">
+                      <div className="flex items-center gap-1.5">
+                        <span className={rec.isLate ? 'text-accent-amber' : 'text-slate-dark'}>
+                          {rec.checkIn || '-'}
                         </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Hours */}
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold font-mono text-slate-dark">
-                      {rec.totalHours > 0 ? `${rec.totalHours} hrs` : '-'}
-                    </div>
-                    {rec.remarks && (
-                      <div className="text-[10px] text-slate-light italic truncate max-w-[150px]">
-                        {rec.remarks}
+                        {rec.isLate && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] bg-accent-amber-light text-accent-amber font-bold">
+                            Late
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </td>
+                    </td>
 
-                  {/* Network / Geofence Tag */}
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-1.5">
-                      {rec.networkType === 'OFFICE_WIFI' ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-light text-brand-blue">
-                          <Wifi className="w-3 h-3" />
-                          <span>Office HQ</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-lavender-light text-slate-dark">
-                          <Home className="w-3 h-3 text-accent-lavender" />
-                          <span>Remote</span>
-                        </span>
+                    {/* Hours */}
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold font-mono text-slate-dark">
+                        {rec.totalHours ? `${rec.totalHours} hrs` : '-'}
+                      </div>
+                      {rec.remarks && (
+                        <div className="text-[10px] text-slate-light italic truncate max-w-[150px]">
+                          {rec.remarks}
+                        </div>
                       )}
-                    </div>
-                    <div className="text-[10px] font-mono text-slate-light mt-0.5">{rec.ipAddress}</div>
-                  </td>
+                    </td>
 
-                  {/* Status Badge */}
-                  <td className="py-3.5 px-4 text-center">
-                    <span
-                      className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        rec.status === 'PRESENT'
-                          ? 'bg-accent-mint-light text-accent-mint border border-accent-mint/30'
-                          : rec.status === 'HALF_DAY'
-                          ? 'bg-accent-amber-light text-accent-amber border border-accent-amber/30'
-                          : rec.status === 'ON_LEAVE'
-                          ? 'bg-brand-light text-brand-blue border border-brand-subtle'
-                          : 'bg-slate-100 text-slate-light'
-                      }`}
-                    >
-                      {rec.status.replace('_', ' ')}
-                    </span>
-                  </td>
+                    {/* Network / Geofence Tag */}
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5">
+                        {rec.networkType === 'OFFICE_WIFI' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-light text-brand-blue">
+                            <Wifi className="w-3 h-3" />
+                            <span>Office HQ</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent-lavender-light text-slate-dark">
+                            <Home className="w-3 h-3 text-accent-lavender" />
+                            <span>Remote</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-light mt-0.5">{rec.ipAddress || '192.168.1.1'}</div>
+                    </td>
 
-                  {/* Actions */}
-                  <td className="py-3.5 px-4 text-right">
-                    {canManageAttendance ? (
-                      <button
-                        onClick={() => {
-                          setEditingRecord(rec);
-                          setOverrideTime(rec.checkIn === '-' ? '09:00 AM' : rec.checkIn);
-                          setOverrideReason('Manager punch adjustment');
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-surface-bg hover:bg-brand-light text-slate-muted hover:text-brand-blue font-bold text-xs border border-surface-border transition-colors inline-flex items-center gap-1"
+                    {/* Status Badge */}
+                    <td className="py-3.5 px-4 text-center">
+                      <span
+                        className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          rec.status === 'PRESENT'
+                            ? 'bg-accent-mint-light text-accent-mint border border-accent-mint/30'
+                            : rec.status === 'HALF_DAY'
+                            ? 'bg-accent-amber-light text-accent-amber border border-accent-amber/30'
+                            : rec.status === 'ON_LEAVE'
+                            ? 'bg-brand-light text-brand-blue border border-brand-subtle'
+                            : 'bg-slate-100 text-slate-light'
+                        }`}
                       >
-                        <Edit3 className="w-3 h-3" />
-                        <span>Adjust</span>
-                      </button>
-                    ) : (
-                      <span className="text-[10px] text-slate-light italic">Read only</span>
-                    )}
+                        {(rec.status || 'PRESENT').replace('_', ' ')}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3.5 px-4 text-right">
+                      {canManageAttendance ? (
+                        <button
+                          onClick={() => {
+                            setEditingRecord(rec);
+                            setOverrideTime(rec.checkIn === '-' ? '09:00 AM' : rec.checkIn || '09:00 AM');
+                            setOverrideReason('Manager punch adjustment');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-surface-bg hover:bg-brand-light text-slate-muted hover:text-brand-blue font-bold text-xs border border-surface-border transition-colors inline-flex items-center gap-1"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Adjust</span>
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-light italic">Read only</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-muted">
+                    No attendance records found for this filter.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -478,8 +487,8 @@ export const AttendanceHub: React.FC = () => {
 
             <form onSubmit={handleSaveOverride} className="space-y-4 pt-4 text-xs">
               <div className="bg-surface-bg p-3 rounded-xl border border-surface-border">
-                <p className="font-bold text-slate-dark">{editingRecord.employeeName}</p>
-                <p className="text-slate-muted">{editingRecord.department} &bull; {editingRecord.date}</p>
+                <p className="font-bold text-slate-dark">{editingRecord.employeeName || 'Employee'}</p>
+                <p className="text-slate-muted">{editingRecord.department || 'General'} &bull; {editingRecord.date || ''}</p>
               </div>
 
               <div>

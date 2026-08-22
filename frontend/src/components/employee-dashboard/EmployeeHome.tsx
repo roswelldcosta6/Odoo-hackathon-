@@ -83,6 +83,8 @@ export const EmployeeHome: React.FC = () => {
     }
   };
 
+  const hasSalary = userEmployee?.salary && userEmployee.salary.netSalary > 0;
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -103,7 +105,7 @@ export const EmployeeHome: React.FC = () => {
                 {currentUser.email} &bull; {currentUser.loginId || 'DFJODO20230001'}
               </span>
               <span className="text-white/60 text-xs">&bull;</span>
-              <span className="text-white/80 text-xs font-medium">{currentUser.designation || 'Full-Stack Engineer'}</span>
+              <span className="text-white/80 text-xs font-medium">{currentUser.designation || 'Software Engineer'}</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight">
               Welcome back, {currentUser.name}
@@ -256,41 +258,52 @@ export const EmployeeHome: React.FC = () => {
           <div>
             <div className="flex items-center justify-between text-xs text-slate-muted font-bold mb-4">
               <span>My Compensation (₹)</span>
-              <span className="text-accent-mint font-bold uppercase text-[10px] bg-accent-mint-light px-2 py-0.5 rounded-full">Disbursed</span>
+              <span className={`font-bold uppercase text-[10px] px-2 py-0.5 rounded-full ${
+                hasSalary ? 'text-accent-mint bg-accent-mint-light' : 'text-slate-500 bg-slate-100'
+              }`}>
+                {hasSalary ? 'Disbursed' : 'Awaiting HR Setup'}
+              </span>
             </div>
 
             <div className="p-4 bg-gradient-to-br from-brand-blue to-accent-cyan rounded-2xl text-white shadow-md">
               <span className="text-[10px] uppercase font-bold text-white/80">Monthly Net Take-Home</span>
               <div className="text-2xl font-black font-mono mt-0.5">
-                ₹{userEmployee?.salary?.netSalary?.toLocaleString('en-IN') || '99,850'}
+                {hasSalary ? `₹${userEmployee.salary.netSalary.toLocaleString('en-IN')}` : '₹0'}
               </div>
               <div className="text-[10px] text-white/80 mt-1">
-                Annual CTC: ₹{userEmployee?.salary?.ctc?.toLocaleString('en-IN') || '12,67,200'}
+                {hasSalary ? `Annual CTC: ₹${userEmployee.salary.ctc?.toLocaleString('en-IN') || (userEmployee.salary.netSalary * 12).toLocaleString('en-IN')}` : 'Salary awaiting assignment by HR manager'}
               </div>
             </div>
 
             <div className="mt-4 space-y-2 text-xs">
               <div className="flex justify-between text-slate-muted">
                 <span>Basic Salary:</span>
-                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.basic?.toLocaleString('en-IN') || '65,000'}</span>
+                <span className="font-bold text-slate-dark font-mono">
+                  {hasSalary ? `₹${userEmployee.salary.basic.toLocaleString('en-IN')}` : 'Unassigned'}
+                </span>
               </div>
               <div className="flex justify-between text-slate-muted">
                 <span>EPF Contribution (12%):</span>
-                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.providentFund?.toLocaleString('en-IN') || '1,800'}</span>
+                <span className="font-bold text-slate-dark font-mono">
+                  {hasSalary ? `₹${userEmployee.salary.providentFund.toLocaleString('en-IN')}` : '-'}
+                </span>
               </div>
               <div className="flex justify-between text-slate-muted">
                 <span>Professional Tax (PT):</span>
-                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.professionalTax || '200'}</span>
+                <span className="font-bold text-slate-dark font-mono">
+                  {hasSalary ? `₹${userEmployee.salary.professionalTax}` : '-'}
+                </span>
               </div>
             </div>
           </div>
 
           <button
             onClick={handleOpenLatestSlip}
-            className="w-full mt-4 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md shadow-brand-blue/20 transition-all flex items-center justify-center gap-1.5"
+            disabled={!hasSalary && myPayslips.length === 0}
+            className="w-full mt-4 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md shadow-brand-blue/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Download Latest Payslip (August 2026)</span>
+            <span>{myPayslips.length > 0 ? 'Download Latest Payslip' : 'Payslip Awaiting HR Setup'}</span>
           </button>
         </div>
 

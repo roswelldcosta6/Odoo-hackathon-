@@ -252,7 +252,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Explicit Registration method saving User's ACTUAL Name and password into state + database
+  // Registration: Default to EMPLOYEE role for all new user signups, NO salary assigned
   const registerNewAccount = async (data: {
     companyName: string;
     companyCode: string;
@@ -266,13 +266,13 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = data.email.trim().toLowerCase();
     const cleanPhone = data.phone.trim();
     const [firstName, ...rest] = cleanName.split(' ');
-    const lastName = rest.join(' ') || 'Admin';
+    const lastName = rest.join(' ') || 'Employee';
 
     const empId = `emp-${Date.now()}`;
     const autoLoginId = generateEmployeeLoginId(firstName, lastName, new Date().toISOString().split('T')[0], employees.length + 1, data.companyCode || 'DF');
     const avatar = data.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150';
 
-    // 1. Create Employee Record
+    // 1. Create Employee Record without Salary (Salary null / unassigned until HR sets it)
     const newEmp: Employee = {
       id: empId,
       employeeCode: `EMP-${(employees.length + 1).toString().padStart(4, '0')}`,
@@ -282,72 +282,72 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: cleanEmail,
       personalEmail: cleanEmail,
       phone: cleanPhone,
-      address: 'Corporate Headquarters',
-      designation: 'Executive Director / Admin',
-      department: 'Executive Board',
+      address: 'Employee Residence',
+      designation: 'Software Engineer',
+      department: 'Engineering',
       joiningDate: new Date().toISOString().split('T')[0],
       employmentStatus: 'ACTIVE',
       employmentType: 'Full-Time',
       avatarUrl: avatar,
-      reportingManager: 'Board of Directors',
+      reportingManager: 'Marcus Vance',
       location: 'Mumbai HQ',
       attendanceRate: 100,
-      performanceRating: 'EXCELLENT',
-      salary: calcIndianPayroll(125000),
+      performanceRating: 'GOOD',
+      salary: undefined as any, // Unassigned salary when creating new account
       documents: []
     };
 
     setEmployees(prev => [newEmp, ...prev]);
 
-    // 2. Create Registered Account Record
+    // 2. Create Registered Account Record (DEFAULT ROLE: EMPLOYEE)
     const newAccount: RegisteredAccount = {
       id: `usr-${empId}`,
       email: cleanEmail,
       password: data.password,
       name: cleanName,
-      role: 'ADMIN',
+      role: 'EMPLOYEE', // Always default to EMPLOYEE for new logins/signups
       employeeId: empId,
       loginId: autoLoginId,
       companyName: data.companyName,
       phone: cleanPhone,
       avatarUrl: avatar,
-      designation: 'Executive Director / Admin'
+      designation: 'Software Engineer'
     };
 
     setRegisteredAccounts(prev => [newAccount, ...prev]);
 
-    // 3. Set Current User to the EXACT newly created user
+    // 3. Set Current User to EMPLOYEE
     const newUser: User = {
       id: `usr-${empId}`,
       email: cleanEmail,
       name: cleanName,
-      role: 'ADMIN',
+      role: 'EMPLOYEE',
       employeeId: empId,
       avatarUrl: avatar,
-      designation: 'Executive Director / Admin',
+      designation: 'Software Engineer',
       loginId: autoLoginId
     };
 
     setCurrentUser(newUser);
-    setCurrentRole('ADMIN');
+    setCurrentRole('EMPLOYEE');
     setIsAuthenticated(true);
 
     addAuditLog(
-      'COMPANY_REGISTERED',
+      'ACCOUNT_REGISTERED',
       'SECURITY',
-      `Registered company ${data.companyName}. Admin account created for ${cleanName} (${autoLoginId}).`
+      `Registered employee account for ${cleanName} (${autoLoginId}). Salary unassigned.`
     );
 
     return { success: true };
   };
 
-  // Secure Credential Login with real password verification
+  // Login with Credentials
   const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanId = loginIdOrEmail.trim().toLowerCase();
     const cleanPass = pass.trim();
 
     if (!cleanId) return { success: false, error: 'Please enter your Login ID or Email.' };
-    if (!cleanPass || cleanPass.length < 4) return { success: false, error: 'Please enter a valid password (minimum 4 characters).' };
+    if (!cleanPass || cleanPass.length < 4) return { success: false, error: 'Please enter a valid password.' };
 
     // 1. Try Backend API
     try {
@@ -364,7 +364,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
     } catch {
-      // API fallback to local accounts
+      // API fallback
     }
 
     // 2. Check Local Registered Accounts database
@@ -375,7 +375,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (matchedAccount) {
       if (matchedAccount.password && matchedAccount.password !== cleanPass) {
-        return { success: false, error: 'Incorrect password. Please verify your password and try again.' };
+        return { success: false, error: 'Incorrect password. Please check your credentials.' };
       }
 
       const userObj: User = {
@@ -385,7 +385,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: matchedAccount.role,
         employeeId: matchedAccount.employeeId,
         avatarUrl: matchedAccount.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150',
-        designation: matchedAccount.designation || 'Staff',
+        designation: matchedAccount.designation || 'Employee',
         loginId: matchedAccount.loginId
       };
 
@@ -423,7 +423,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    return { success: false, error: 'No account found matching this Login ID or Email. Please check your spelling or sign up.' };
+    return { success: false, error: 'No account found matching this Login ID or Email.' };
   };
 
   const logout = () => {
@@ -432,7 +432,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTab('dashboard');
   };
 
-  // Add Employee and provision their Login Account with Password
+  // Add Employee (by Admin/Manager) - Saves Employee & Registered Account
   const addEmployee = (empData: Omit<Employee, 'id'>, customPassword?: string) => {
     const newId = `emp-${Date.now()}`;
     const autoLoginId = empData.loginId || generateEmployeeLoginId(
@@ -452,7 +452,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setEmployees(prev => [newEmp, ...prev]);
 
-    // Save login credentials account
+    // Save login credentials account (Default: EMPLOYEE unless HR Dept)
     const newAccount: RegisteredAccount = {
       id: `usr-${newId}`,
       email: empData.email.toLowerCase(),
@@ -467,50 +467,52 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setRegisteredAccounts(prev => [newAccount, ...prev]);
 
-    // Create Initial Payslip
-    const newSlip: Payslip = {
-      id: `ps-${Date.now()}`,
-      slipNumber: `PAY-2026-${(payslips.length + 1).toString().padStart(4, '0')}`,
-      employeeId: newId,
-      employeeName: `${empData.firstName} ${empData.lastName}`,
-      employeeCode: empData.employeeCode,
-      loginId: autoLoginId,
-      designation: empData.designation,
-      department: empData.department,
-      panNumber: empData.pan || 'ABCDE1234F',
-      bankAccount: empData.bankAccountNo || '50200012345678',
-      ifscCode: empData.ifscCode || 'HDFC0001234',
-      uanNumber: empData.uanNumber || '100123456789',
-      month: 'August 2026',
-      payDate: '2026-08-31',
-      workingDays: 22,
-      daysWorked: 22,
-      earnings: {
-        basic: empData.salary?.basic || 65000,
-        hra: empData.salary?.hra || 26000,
-        conveyance: empData.salary?.conveyanceAllowance || 1600,
-        specialAllowance: empData.salary?.specialAllowance || 13000,
-        performanceBonus: 0,
-        grossTotal: empData.salary?.grossSalary || 105600
-      },
-      deductions: {
-        employeePF: empData.salary?.providentFund || 1800,
-        professionalTax: empData.salary?.professionalTax || 200,
-        incomeTaxTDS: empData.salary?.incomeTaxTDS || 3250,
-        healthInsurance: empData.salary?.medicalInsurance || 500,
-        totalDeductions: (empData.salary?.providentFund || 1800) + (empData.salary?.professionalTax || 200) + (empData.salary?.incomeTaxTDS || 3250) + 500
-      },
-      netPayable: empData.salary?.netSalary || 99850,
-      netPayableWords: 'Rupees Ninety Nine Thousand Eight Hundred Fifty Only',
-      paymentStatus: 'PAID'
-    };
+    // Create Initial Payslip if salary is set
+    if (empData.salary) {
+      const newSlip: Payslip = {
+        id: `ps-${Date.now()}`,
+        slipNumber: `PAY-2026-${(payslips.length + 1).toString().padStart(4, '0')}`,
+        employeeId: newId,
+        employeeName: `${empData.firstName} ${empData.lastName}`,
+        employeeCode: empData.employeeCode,
+        loginId: autoLoginId,
+        designation: empData.designation,
+        department: empData.department,
+        panNumber: empData.pan || 'ABCDE1234F',
+        bankAccount: empData.bankAccountNo || '50200012345678',
+        ifscCode: empData.ifscCode || 'HDFC0001234',
+        uanNumber: empData.uanNumber || '100123456789',
+        month: 'August 2026',
+        payDate: '2026-08-31',
+        workingDays: 22,
+        daysWorked: 22,
+        earnings: {
+          basic: empData.salary?.basic || 65000,
+          hra: empData.salary?.hra || 26000,
+          conveyance: empData.salary?.conveyanceAllowance || 1600,
+          specialAllowance: empData.salary?.specialAllowance || 13000,
+          performanceBonus: 0,
+          grossTotal: empData.salary?.grossSalary || 105600
+        },
+        deductions: {
+          employeePF: empData.salary?.providentFund || 1800,
+          professionalTax: empData.salary?.professionalTax || 200,
+          incomeTaxTDS: empData.salary?.incomeTaxTDS || 3250,
+          healthInsurance: empData.salary?.medicalInsurance || 500,
+          totalDeductions: (empData.salary?.providentFund || 1800) + (empData.salary?.professionalTax || 200) + (empData.salary?.incomeTaxTDS || 3250) + 500
+        },
+        netPayable: empData.salary?.netSalary || 99850,
+        netPayableWords: 'Rupees Ninety Nine Thousand Eight Hundred Fifty Only',
+        paymentStatus: 'PAID'
+      };
 
-    setPayslips(prev => [newSlip, ...prev]);
+      setPayslips(prev => [newSlip, ...prev]);
+    }
 
     addAuditLog(
       'EMPLOYEE_PROVISIONED',
       'EMPLOYEE',
-      `Onboarded ${empData.firstName} ${empData.lastName} (${empData.designation}). Login ID: ${autoLoginId}. Credentials provisioned.`
+      `Onboarded ${empData.firstName} ${empData.lastName} (${empData.designation}). Login ID: ${autoLoginId}.`
     );
   };
 
@@ -531,7 +533,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addAuditLog(
         'EMPLOYEE_REMOVED',
         'EMPLOYEE',
-        `Removed ${toRemove.firstName} ${toRemove.lastName} (${toRemove.loginId || toRemove.employeeCode}) from database and account registry.`
+        `Removed ${toRemove.firstName} ${toRemove.lastName} (${toRemove.loginId || toRemove.employeeCode}).`
       );
     }
   };
@@ -573,11 +575,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAttendanceRecords(prev => [record, ...prev]);
       }
 
-      addAuditLog(
-        'PUNCH_IN',
-        'ATTENDANCE',
-        `${currentUser.name} punched IN at ${timeStr}.`
-      );
+      addAuditLog('PUNCH_IN', 'ATTENDANCE', `${currentUser.name} punched IN at ${timeStr}.`);
     } else {
       const hoursWorked = Math.max(0.5, Number((secondsWorkedToday / 3600).toFixed(1)));
       setIsClockedIn(false);
@@ -595,11 +593,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return r;
       }));
 
-      addAuditLog(
-        'PUNCH_OUT',
-        'ATTENDANCE',
-        `${currentUser.name} punched OUT at ${timeStr}. Duration: ${hoursWorked} hrs.`
-      );
+      addAuditLog('PUNCH_OUT', 'ATTENDANCE', `${currentUser.name} punched OUT at ${timeStr}.`);
     }
   };
 
@@ -644,11 +638,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAttendanceRecords(prev => [record, ...prev]);
     }
 
-    addAuditLog(
-      'ATTENDANCE_OVERRIDE',
-      'ATTENDANCE',
-      `Admin logged attendance for ${emp.firstName} ${emp.lastName}: ${status}`
-    );
+    addAuditLog('ATTENDANCE_OVERRIDE', 'ATTENDANCE', `Admin logged attendance for ${emp.firstName} ${emp.lastName}: ${status}`);
   };
 
   const overrideAttendance = (id: string, timeOrStatus: any, reason?: string) => {
@@ -701,11 +691,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev
     ]);
 
-    addAuditLog(
-      'LEAVE_APPLICATION',
-      'LEAVE',
-      `${currentUser.name} submitted ${leave.totalDays}d leave application`
-    );
+    addAuditLog('LEAVE_APPLICATION', 'LEAVE', `${currentUser.name} submitted ${leave.totalDays}d leave application`);
 
     return {
       success: true,
@@ -774,11 +760,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     setPayslips(refreshedSlips);
-    addAuditLog(
-      'PAYROLL_BATCH_EXECUTED',
-      'PAYROLL',
-      `Executed electronic salary disbursement batch for ${employees.length} employees for ${month}.`
-    );
+    addAuditLog('PAYROLL_BATCH_EXECUTED', 'PAYROLL', `Executed electronic salary disbursement batch for ${employees.length} employees.`);
   };
 
   const markNotificationAsRead = (id: string) => {

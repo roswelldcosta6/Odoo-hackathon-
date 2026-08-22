@@ -1,0 +1,216 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  HR_OFFICER
+  EMPLOYEE
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  PROBATION
+  RESIGNED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PerformanceRating {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  NEEDS_IMPROVEMENT
+}
+
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  role        Role      @default(EMPLOYEE)
+  isVerified  Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employee    Employee?
+
+  @@map("users")
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  name        String
+  code        String     @unique
+  unitName    String
+  budget      Float      @default(0.0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  employees   Employee[]
+
+  @@map("departments")
+}
+
+model Employee {
+  id                  String             @id @default(uuid())
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeCode        String             @unique
+  firstName           String
+  lastName            String
+  phone               String?
+  personalEmail       String?
+  address             String?            @db.Text
+  designation         String
+  departmentId        String
+  department          Department         @relation(fields: [departmentId], references: [id])
+  joiningDate         DateTime
+  status              EmploymentStatus   @default(ACTIVE)
+  avatarUrl           String?            @db.Text
+  performanceRating   PerformanceRating  @default(GOOD)
+  reportingManagerId  String?
+  reportingManager    Employee?          @relation("ManagerSubordinates", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  subordinates        Employee[]         @relation("ManagerSubordinates")
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  attendances         Attendance[]
+  leaveBalances       LeaveBalance[]
+  leaveRequests       LeaveRequest[]     @relation("EmployeeLeaveRequests")
+  reviewedLeaves      LeaveRequest[]     @relation("ReviewedLeaveRequests")
+  payrollStructure    PayrollStructure?
+  documents           EmployeeDocument[]
+
+  @@map("employees")
+}
+
+model EmployeeDocument {
+  id          String    @id @default(uuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  title       String
+  fileUrl     String    @db.Text
+  fileType    String
+  uploadedAt  DateTime  @default(now())
+
+  @@map("employee_documents")
+}
+
+model Attendance {
+  id          String            @id @default(uuid())
+  employeeId  String
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate    DateTime          @db.Date
+  checkIn     DateTime?
+  checkOut    DateTime?
+  totalHours  Float             @default(0.0)
+  status      AttendanceStatus  @default(PRESENT)
+  isLate      Boolean           @default(false)
+  remarks     String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([employeeId, workDate])
+  @@map("attendances")
+}
+
+model LeaveType {
+  id            String         @id @default(uuid())
+  name          String
+  code          String         @unique
+  defaultDays   Float          @default(12.0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model LeaveBalance {
+  id              String     @id @default(uuid())
+  employeeId      String
+  employee        Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType  @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  totalAllocated  Float
+  used            Float      @default(0.0)
+  remaining       Float
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([employeeId, leaveTypeId])
+  @@map("leave_balances")
+}
+
+model LeaveRequest {
+  id              String       @id @default(uuid())
+  employeeId      String
+  employee        Employee     @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  startDate       DateTime     @db.Date
+  endDate         DateTime     @db.Date
+  totalDays       Float
+  reason          String       @db.Text
+  status          LeaveStatus  @default(PENDING)
+  reviewedById    String?
+  reviewedBy      Employee?    @relation("ReviewedLeaveRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewerComment String?      @db.Text
+  reviewedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("leave_requests")
+}
+
+model PayrollStructure {
+  id                String    @id @default(uuid())
+  employeeId        String    @unique
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  basicSalary       Float
+  hraAllowance      Float
+  specialAllowance  Float
+  providentFund     Float
+  professionalTax   Float
+  medicalInsurance  Float
+  grossSalary       Float
+  totalDeductions   Float
+  netSalary         Float
+  effectiveDate     DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("payroll_structures")
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  action        String
+  entity        String
+  entityId      String
+  performedById String
+  details       String    @db.Text
+  createdAt     DateTime  @default(now())
+
+  @@map("audit_logs")
+}

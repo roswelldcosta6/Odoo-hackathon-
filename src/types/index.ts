@@ -1,6 +1,6 @@
-export type UserRole = 'ADMIN' | 'HR_OFFICER' | 'EMPLOYEE';
+﻿export type UserRole = 'ADMIN' | 'HR_OFFICER' | 'EMPLOYEE';
 
-export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'PROBATION' | 'RESIGNED';
+export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'PROBATION' | 'RESIGNED' | 'NOTICE_PERIOD' | 'TERMINATED';
 export type EmploymentType = 'Full-Time' | 'Remote' | 'Contractor' | 'Probation';
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'ON_LEAVE';
@@ -16,20 +16,40 @@ export interface User {
   name: string;
   avatarUrl: string;
   designation: string;
+  loginId?: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  name: string;
+  type: string;
+  uploadDate: string;
+  size: string;
+  status: 'VERIFIED' | 'PENDING' | 'REJECTED';
+  fileUrl?: string;
 }
 
 export interface Employee {
   id: string;
   employeeCode: string;
+  loginId: string; // Auto-generated e.g. OIJODO20220001 / DFJODO20260001
   firstName: string;
   lastName: string;
   email: string;
   personalEmail: string;
   phone: string;
+  whatsapp?: string;
   address: string;
+  currentAddress?: string;
+  permanentAddress?: string;
   designation: string;
   department: string;
   joiningDate: string;
+  probationEndDate?: string;
+  contractEndDate?: string;
+  contractRenewalDate?: string;
+  lastWorkingDay?: string;
+  noticePeriodDays?: number;
   employmentStatus: EmploymentStatus;
   employmentType: EmploymentType;
   avatarUrl: string;
@@ -38,24 +58,42 @@ export interface Employee {
   location: string;
   attendanceRate: number; // e.g. 98.4
   performanceRating: 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'ATTENTION';
+  // Personal Details
+  dateOfBirth?: string;
+  gender?: 'Male' | 'Female' | 'Other' | 'Prefer not to say';
+  bloodGroup?: string;
+  nationality?: string;
+  aadhaar?: string; // Format: XXXX XXXX 1234
+  pan?: string; // Format: ABCDE1234F
+  // Emergency Contact
+  emergencyContactName?: string;
+  emergencyContactRelation?: string;
+  emergencyContactPhone?: string;
+  // Indian Banking Details
+  bankName?: string;
+  bankAccountNo?: string;
+  ifscCode?: string;
+  uanNumber?: string;
+  // Termination / Lifecycle Info
+  terminationReason?: string;
+  terminationRemarks?: string;
   salary: {
     basic: number;
     hra: number;
     specialAllowance: number;
-    providentFund: number;
-    professionalTax: number;
+    conveyanceAllowance?: number;
+    medicalAllowance?: number;
+    providentFund: number; // Employee PF: 12% of Basic
+    employerPF?: number; // Employer PF: 12% of Basic
+    professionalTax: number; // PT: ₹200/month
+    esi?: number; // ESI: 0.75% of Gross if <= ₹21,000
+    incomeTaxTDS?: number; // Estimated TDS
     medicalInsurance: number;
     grossSalary: number;
     netSalary: number;
+    ctc?: number; // Annual Cost to Company
   };
-  documents: {
-    id: string;
-    name: string;
-    type: string;
-    uploadDate: string;
-    size: string;
-    status: 'VERIFIED' | 'PENDING';
-  }[];
+  documents: EmployeeDocument[];
 }
 
 export interface AttendanceRecord {
@@ -110,12 +148,14 @@ export interface Payslip {
   employeeId: string;
   employeeName: string;
   employeeCode: string;
+  loginId?: string;
   designation: string;
   department: string;
   panNumber: string;
   bankAccount: string;
+  ifscCode?: string;
   uanNumber: string;
-  month: string; // e.g., "August 2026"
+  month: string; // e.g., 'August 2026'
   payDate: string;
   workingDays: number;
   daysWorked: number;
@@ -124,18 +164,22 @@ export interface Payslip {
     hra: number;
     conveyance: number;
     specialAllowance: number;
+    medicalAllowance?: number;
     performanceBonus: number;
     grossTotal: number;
   };
   deductions: {
-    providentFund: number;
+    employeePF: number;
+    employerPF?: number;
     professionalTax: number;
     incomeTaxTDS: number;
+    esi?: number;
     healthInsurance: number;
     totalDeductions: number;
   };
   netPayable: number;
   netPayableWords: string;
+  ctcAnnual?: number;
   paymentStatus: 'PAID' | 'PROCESSED' | 'PENDING';
 }
 

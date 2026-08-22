@@ -26,15 +26,20 @@ export const PayslipModal: React.FC = () => {
   const deductions = selectedPayslip.deductions;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white border border-surface-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in my-8">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <div className="bg-white border border-surface-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in my-auto max-h-[95vh] flex flex-col">
         
-        {/* Modal Top Actions (Hidden in Print) */}
-        <div className="no-print bg-surface-bg border-b border-surface-border p-4 px-6 flex items-center justify-between">
+        {/* Sticky Top Action Bar */}
+        <div className="no-print bg-slate-900 text-white p-3.5 px-6 flex items-center justify-between flex-shrink-0 border-b border-slate-800 shadow-md">
           <button
             type="button"
             onClick={handleClose}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-surface-border text-slate-dark hover:bg-brand-light hover:text-brand-blue font-bold text-xs shadow-sm transition-all"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md transition-all active:scale-95"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Payroll</span>
@@ -43,32 +48,32 @@ export const PayslipModal: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-brand-blue text-white hover:bg-brand-hover text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / Save PDF</span>
+              <span>Print / PDF</span>
             </button>
             <button
               onClick={handleClose}
-              className="p-1.5 rounded-lg text-slate-muted hover:text-slate-dark hover:bg-surface-border transition-colors"
+              className="p-2 rounded-xl bg-white/10 hover:bg-red-500 text-white transition-colors ml-1"
               title="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Printable Payslip Document Container */}
-        <div id="printable-payslip" className="p-8 text-slate-dark bg-white space-y-5">
+        {/* Scrollable Printable Payslip Document */}
+        <div className="overflow-y-auto p-6 sm:p-8 text-slate-dark bg-white space-y-5 flex-1">
           
           {/* Header & Company Letterhead */}
           <div className="flex items-start justify-between border-b-2 border-brand-blue pb-5">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-brand-blue flex items-center justify-center text-white font-black text-xl shadow-md">
+              <div className="w-12 h-12 rounded-2xl bg-brand-blue flex items-center justify-center text-white font-black text-xl shadow-md">
                 DF
               </div>
               <div>
-                <h1 className="text-xl font-black text-slate-dark tracking-tight">
+                <h1 className="text-lg sm:text-xl font-black text-slate-dark tracking-tight">
                   Dayflow Technologies India Pvt. Ltd.
                 </h1>
                 <p className="text-xs text-slate-muted">
@@ -94,7 +99,7 @@ export const PayslipModal: React.FC = () => {
           </div>
 
           {/* Employee & Bank Info Grid */}
-          <div className="grid grid-cols-2 gap-4 bg-surface-bg p-4 rounded-xl border border-surface-border text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface-bg p-4 rounded-2xl border border-surface-border text-xs">
             <div className="space-y-1.5">
               <div>
                 <span className="text-slate-muted">Employee Name:</span>{' '}
@@ -151,7 +156,7 @@ export const PayslipModal: React.FC = () => {
           </div>
 
           {/* Earnings & Deductions Tables */}
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             {/* Earnings */}
             <div className="border border-surface-border rounded-xl overflow-hidden">
               <div className="bg-brand-light px-3.5 py-2 font-extrabold text-brand-blue flex justify-between">
@@ -257,6 +262,27 @@ export const PayslipModal: React.FC = () => {
           </div>
 
         </div>
+
+        {/* Sticky Bottom Action Bar */}
+        <div className="no-print bg-surface-bg border-t border-surface-border p-3.5 px-6 flex items-center justify-between flex-shrink-0">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-surface-border text-slate-dark hover:bg-brand-light hover:text-brand-blue font-bold text-xs shadow-sm transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Payroll</span>
+          </button>
+
+          <button
+            onClick={handlePrint}
+            className="px-5 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Payslip</span>
+          </button>
+        </div>
+
       </div>
     </div>
   );

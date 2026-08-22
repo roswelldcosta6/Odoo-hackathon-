@@ -132,17 +132,6 @@ export const SettingsView: React.FC = () => {
             />
           </div>
 
-          <div className="space-y-2 pt-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.enableGeminiAI}
-                onChange={(e) => setSettings({ ...settings, enableGeminiAI: e.target.checked })}
-                className="rounded text-brand-blue"
-              />
-              <span className="font-bold text-slate-dark">Enable Dayflow AI Copilot in employee self-service</span>
-            </label>
-
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -152,7 +141,6 @@ export const SettingsView: React.FC = () => {
               />
               <span className="font-bold text-slate-dark">Enforce Network Geofence IP verification on punch-in</span>
             </label>
-          </div>
         </div>
 
         {/* Save Bar */}

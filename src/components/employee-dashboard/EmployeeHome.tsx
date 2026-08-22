@@ -7,7 +7,6 @@ import {
   CalendarCheck,
   CreditCard,
   User,
-  Sparkles,
   Flame,
   Wifi,
   Home,
@@ -34,7 +33,6 @@ export const EmployeeHome: React.FC = () => {
     userLeaveBalance,
     leaveRequests,
     setActiveTab,
-    setIsCopilotOpen,
     setSelectedEmployee,
     setIsEmployeeModalOpen,
     employees,
@@ -60,367 +58,242 @@ export const EmployeeHome: React.FC = () => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
-  const weeklySchedule = [
-    { day: 'Mon', date: 'Aug 17', hours: '8.4h', status: 'PRESENT' },
-    { day: 'Tue', date: 'Aug 18', hours: '8.2h', status: 'PRESENT' },
-    { day: 'Wed', date: 'Aug 19', hours: '8.5h', status: 'PRESENT' },
-    { day: 'Thu', date: 'Aug 20', hours: '8.1h', status: 'PRESENT' },
-    { day: 'Fri', date: 'Aug 21', hours: '8.0h', status: 'PRESENT' },
-    { day: 'Sat', date: 'Aug 22', hours: `${(secondsWorkedToday / 3600).toFixed(1)}h`, status: 'TODAY' },
-    { day: 'Sun', date: 'Aug 23', hours: '-', status: 'OFF' },
-  ];
-
-  const handleOpenMyPayslip = () => {
-    const slip = payslips.find(s => s.employeeId === userEmployee.id) || payslips[0];
-    setSelectedPayslip(slip);
-    setIsPayslipModalOpen(true);
+  const handleOpenMyProfile = () => {
+    if (userEmployee) {
+      setSelectedEmployee(userEmployee);
+      setIsEmployeeModalOpen(true);
+    }
   };
 
-  const handleOpenMyProfile = () => {
-    setSelectedEmployee(userEmployee);
-    setIsEmployeeModalOpen(true);
+  const myPayslips = payslips.filter(s =>
+    s.employeeId === currentUser.employeeId ||
+    s.employeeName.toLowerCase() === currentUser.name.toLowerCase() ||
+    (currentUser.loginId && s.loginId === currentUser.loginId)
+  );
+
+  const handleOpenLatestSlip = () => {
+    if (myPayslips.length > 0) {
+      setSelectedPayslip(myPayslips[0]);
+      setIsPayslipModalOpen(true);
+    } else {
+      setActiveTab('payroll');
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Welcome Card */}
-      <div className="bg-white border border-surface-border rounded-2xl p-6 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      {/* Top Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-slate-800 to-brand-blue rounded-2xl p-6 text-white shadow-card relative overflow-hidden">
+        <div className="relative z-0 flex items-center gap-4">
           <div className="relative">
             <img
-              src={currentUser.avatarUrl}
+              src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150'}
               alt={currentUser.name}
-              className="w-16 h-16 rounded-2xl object-cover border-2 border-brand-light shadow-md"
+              className="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-md bg-slate-800"
             />
-            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-accent-mint border-2 border-white shadow-sm" />
+            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-accent-mint border-2 border-slate-900" />
           </div>
+
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-slate-dark tracking-tight">
-                Hello, {currentUser.name} 👋
-              </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-brand-light text-brand-blue text-xs font-bold">
-                {userEmployee.designation}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-accent-cyan text-xs font-bold font-mono">
+                {currentUser.loginId || 'DFJODO20230001'}
               </span>
+              <span className="text-white/60 text-xs">&bull;</span>
+              <span className="text-white/80 text-xs font-medium">{currentUser.designation}</span>
             </div>
-            <p className="text-xs text-slate-muted mt-0.5">
-              {userEmployee.department} · Employee Code: <strong className="font-mono text-slate-dark">{userEmployee.employeeCode}</strong>
+            <h2 className="text-2xl font-black tracking-tight">
+              Welcome back, {currentUser.name}
+            </h2>
+            <p className="text-xs text-white/70 mt-0.5">
+              Enterprise Employee Portal &bull; Direct access to attendance, leave balances, and salary payslips.
             </p>
           </div>
         </div>
 
-        {/* Gamified Streak & AI trigger */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-accent-amber-light text-accent-amber border border-accent-amber/30 text-xs font-bold shadow-sm">
-            <Flame className="w-4 h-4 fill-accent-amber text-accent-amber animate-bounce" />
-            <div>
-              <div className="leading-tight">{streakDays}-Day Streak!</div>
-              <div className="text-[10px] opacity-80">Punctuality Champ 🏆</div>
-            </div>
-          </div>
-
+        <div className="flex items-center gap-3 relative z-0">
           <button
-            onClick={() => setIsCopilotOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-blue to-accent-cyan text-white text-xs font-bold shadow-md shadow-brand-blue/20 hover:opacity-95 transition-opacity"
+            onClick={handleOpenMyProfile}
+            className="px-4 py-2.5 rounded-xl bg-white text-slate-dark font-bold text-xs hover:bg-slate-50 transition-all shadow-md flex items-center gap-2"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>Ask Dayflow AI</span>
+            <User className="w-3.5 h-3.5 text-brand-blue" />
+            <span>My Profile & Vault</span>
           </button>
         </div>
       </div>
 
-      {/* Main Grid: Punch Widget + Stats + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Grid: Punch Clock + Leave Balances + Salary Card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* Left Column: Interactive Punch Clock Card (1 col) */}
-        <div className="bg-white border border-surface-border rounded-2xl p-6 shadow-card flex flex-col justify-between items-center text-center">
-          <div className="w-full flex items-center justify-between mb-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-muted">
-              Live Punch Clock
-            </span>
-            
-            {/* Geofence tag */}
-            <button
-              onClick={() => setPunchNetworkType(punchNetworkType === 'OFFICE_WIFI' ? 'REMOTE_IP' : 'OFFICE_WIFI')}
-              className="flex items-center gap-1 text-[11px] font-semibold text-brand-blue bg-brand-light px-2.5 py-1 rounded-full border border-brand-subtle"
-            >
-              {punchNetworkType === 'OFFICE_WIFI' ? (
-                <>
-                  <Wifi className="w-3 h-3 text-brand-blue" />
-                  <span>Office HQ</span>
-                </>
-              ) : (
-                <>
-                  <Home className="w-3 h-3 text-accent-lavender" />
-                  <span>Remote WFH</span>
-                </>
-              )}
-            </button>
+        {/* Card 1: Interactive Circular Punch Clock */}
+        <div className="bg-white border border-surface-border rounded-2xl p-6 shadow-card flex flex-col items-center justify-between text-center">
+          <div className="w-full flex items-center justify-between text-xs text-slate-muted font-bold mb-2">
+            <span>Shift Tracker (8h)</span>
+            <span className="text-brand-blue font-mono">{punchInTime ? `In: ${punchInTime}` : 'Not Checked In'}</span>
           </div>
 
-          {/* Circular SVG Timer */}
-          <div className="relative w-48 h-48 flex items-center justify-center my-2">
-            <svg className="w-48 h-48 transform -rotate-90">
+          {/* SVG Progress Ring */}
+          <div className="relative my-2">
+            <svg className="w-40 h-40 -rotate-90">
               <circle
-                cx="96"
-                cy="96"
+                cx="80"
+                cy="80"
                 r={radius}
-                className="text-surface-border stroke-current"
+                className="stroke-surface-border fill-transparent"
                 strokeWidth="10"
-                fill="transparent"
               />
               <circle
-                cx="96"
-                cy="96"
+                cx="80"
+                cy="80"
                 r={radius}
-                stroke={isBreakActive ? '#FF9F43' : isClockedIn ? '#007BFF' : '#CBD5E1'}
+                className="stroke-brand-blue fill-transparent transition-all duration-1000 ease-linear"
                 strokeWidth="10"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
-                fill="transparent"
-                className="transition-all duration-1000 ease-out"
               />
             </svg>
 
-            {/* Timer digits inside donut */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="font-mono text-2xl font-black text-slate-dark tracking-tight">
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="text-2xl font-black font-mono text-slate-dark tracking-tight">
                 {formatTime(secondsWorkedToday)}
-              </span>
-              <span className="text-[11px] font-bold text-slate-muted mt-0.5">
-                Target: 8h 00m
-              </span>
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1.5 uppercase ${
-                  isBreakActive
-                    ? 'bg-accent-amber-light text-accent-amber'
-                    : isClockedIn
-                    ? 'bg-accent-mint-light text-accent-mint'
-                    : 'bg-slate-100 text-slate-light'
-                }`}
-              >
-                {isBreakActive ? 'Break Time' : isClockedIn ? 'Active · Clocked In' : 'Punched Out'}
+              </div>
+              <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${
+                isClockedIn ? (isBreakActive ? 'text-accent-amber' : 'text-accent-mint') : 'text-slate-muted'
+              }`}>
+                {isClockedIn ? (isBreakActive ? 'On Break' : 'Active Duty') : 'Off Duty'}
               </span>
             </div>
           </div>
 
-          <p className="text-xs text-slate-muted mb-4">
-            {isClockedIn
-              ? `Checked in at ${punchInTime} · IP: 192.168.1.104`
-              : 'You are currently clocked out. Punch in to track workday.'}
-          </p>
-
-          {/* Punch Actions */}
-          <div className="w-full flex items-center gap-3">
+          {/* Actions */}
+          <div className="w-full space-y-2 mt-2">
             <button
               onClick={togglePunchClock}
-              className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 ${
+              className={`w-full py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 ${
                 isClockedIn
-                  ? 'bg-accent-rose hover:bg-red-600 shadow-accent-rose/20'
-                  : 'bg-brand-blue hover:bg-brand-hover shadow-brand-blue/30'
+                  ? 'bg-accent-rose hover:bg-red-600 text-white'
+                  : 'bg-brand-blue hover:bg-brand-hover text-white'
               }`}
             >
-              {isClockedIn ? (
-                <>
-                  <Square className="w-4 h-4 fill-current" />
-                  <span>Punch Out</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Punch In</span>
-                </>
-              )}
+              {isClockedIn ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+              <span>{isClockedIn ? 'Clock Out Shift' : 'Clock In Now'}</span>
             </button>
 
             {isClockedIn && (
               <button
                 onClick={toggleBreak}
-                className={`py-3 px-4 rounded-xl text-sm font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                className={`w-full py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
                   isBreakActive
-                    ? 'bg-accent-amber text-white border-accent-amber shadow-sm'
-                    : 'bg-surface-bg text-slate-dark hover:bg-surface-border border-surface-border'
+                    ? 'bg-accent-amber text-white border-accent-amber'
+                    : 'bg-surface-bg border-surface-border text-slate-dark hover:bg-white'
                 }`}
               >
-                <Coffee className="w-4 h-4" />
-                <span>{isBreakActive ? 'Resume' : 'Break'}</span>
+                <Coffee className="w-3.5 h-3.5" />
+                <span>{isBreakActive ? 'End Break' : 'Take a Short Break'}</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Right Columns: Stats & Timesheets (2 cols) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Quick Action Cards Grid (4 Cards) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div
-              onClick={handleOpenMyProfile}
-              className="bg-white border border-surface-border rounded-2xl p-4 shadow-card hover:border-brand-blue hover:shadow-md cursor-pointer transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-brand-light text-brand-blue flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <User className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-dark">My Profile</h4>
-              <p className="text-[11px] text-slate-muted mt-0.5">Contact & Vault</p>
-            </div>
-
-            <div
-              onClick={() => setActiveTab('attendance')}
-              className="bg-white border border-surface-border rounded-2xl p-4 shadow-card hover:border-accent-cyan hover:shadow-md cursor-pointer transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-accent-cyan-light text-accent-cyan flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Clock className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-dark">Attendance</h4>
-              <p className="text-[11px] text-slate-muted mt-0.5">Timesheet Logs</p>
-            </div>
-
-            <div
-              onClick={() => setActiveTab('leaves')}
-              className="bg-white border border-surface-border rounded-2xl p-4 shadow-card hover:border-accent-mint hover:shadow-md cursor-pointer transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-accent-mint-light text-accent-mint flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <CalendarCheck className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-dark">Time-Off</h4>
-              <p className="text-[11px] text-slate-muted mt-0.5">Apply & Balances</p>
-            </div>
-
-            <div
-              onClick={handleOpenMyPayslip}
-              className="bg-white border border-surface-border rounded-2xl p-4 shadow-card hover:border-accent-lavender hover:shadow-md cursor-pointer transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-accent-lavender-light text-accent-lavender flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <CreditCard className="w-5 h-5" />
-              </div>
-              <h4 className="text-xs font-bold text-slate-dark">My Payroll</h4>
-              <p className="text-[11px] text-slate-muted mt-0.5">PDF Payslips</p>
-            </div>
-          </div>
-
-          {/* Leave Quota Balance Overview */}
-          <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-extrabold text-slate-dark text-sm">
-                  My Leave Balances
-                </h3>
-                <p className="text-xs text-slate-muted">Annual Quota Cycle 2026</p>
-              </div>
-              <button
-                onClick={() => setActiveTab('leaves')}
-                className="text-xs font-bold text-brand-blue hover:text-brand-hover"
-              >
-                Apply for Leave →
+        {/* Card 2: Leave Balances */}
+        <div className="bg-white border border-surface-border rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-muted font-bold mb-4">
+              <span>Time-Off Balances</span>
+              <button onClick={() => setActiveTab('leaves')} className="text-brand-blue hover:underline">
+                Apply Leave &rarr;
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Paid Annual */}
-              <div className="bg-surface-bg p-3.5 rounded-xl border border-surface-border">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-dark mb-1">
-                  <span>Paid Annual Leave</span>
-                  <span className="text-brand-blue font-mono">{userLeaveBalance.paidAnnual.remaining} Left</span>
+            <div className="space-y-3.5">
+              <div className="p-3 bg-surface-bg border border-surface-border rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-dark text-xs">Paid Annual Leave</div>
+                  <span className="text-[10px] text-slate-muted">{userLeaveBalance.paidAnnual.used} used of {userLeaveBalance.paidAnnual.total} days</span>
                 </div>
-                <div className="w-full bg-surface-border rounded-full h-2 overflow-hidden my-2">
-                  <div
-                    className="bg-brand-blue h-full rounded-full"
-                    style={{ width: `${(userLeaveBalance.paidAnnual.remaining / userLeaveBalance.paidAnnual.total) * 100}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-slate-light flex justify-between">
-                  <span>Used: {userLeaveBalance.paidAnnual.used}d</span>
-                  <span>Quota: {userLeaveBalance.paidAnnual.total}d</span>
-                </div>
+                <span className="font-black text-sm text-brand-blue font-mono">
+                  {userLeaveBalance.paidAnnual.remaining} Left
+                </span>
               </div>
 
-              {/* Sick Leave */}
-              <div className="bg-surface-bg p-3.5 rounded-xl border border-surface-border">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-dark mb-1">
-                  <span>Sick Leave</span>
-                  <span className="text-accent-mint font-mono">{userLeaveBalance.sickLeave.remaining} Left</span>
+              <div className="p-3 bg-surface-bg border border-surface-border rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-dark text-xs">Paid Sick Leave</div>
+                  <span className="text-[10px] text-slate-muted">{userLeaveBalance.sickLeave.used} used of {userLeaveBalance.sickLeave.total} days</span>
                 </div>
-                <div className="w-full bg-surface-border rounded-full h-2 overflow-hidden my-2">
-                  <div
-                    className="bg-accent-mint h-full rounded-full"
-                    style={{ width: `${(userLeaveBalance.sickLeave.remaining / userLeaveBalance.sickLeave.total) * 100}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-slate-light flex justify-between">
-                  <span>Used: {userLeaveBalance.sickLeave.used}d</span>
-                  <span>Quota: {userLeaveBalance.sickLeave.total}d</span>
-                </div>
+                <span className="font-black text-sm text-accent-mint font-mono">
+                  {userLeaveBalance.sickLeave.remaining} Left
+                </span>
               </div>
 
-              {/* Casual Leave */}
-              <div className="bg-surface-bg p-3.5 rounded-xl border border-surface-border">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-dark mb-1">
-                  <span>Casual Leave</span>
-                  <span className="text-accent-amber font-mono">{userLeaveBalance.casualLeave.remaining} Left</span>
+              <div className="p-3 bg-surface-bg border border-surface-border rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-dark text-xs">Casual Leaves</div>
+                  <span className="text-[10px] text-slate-muted">{userLeaveBalance.casualLeave.used} used of {userLeaveBalance.casualLeave.total} days</span>
                 </div>
-                <div className="w-full bg-surface-border rounded-full h-2 overflow-hidden my-2">
-                  <div
-                    className="bg-accent-amber h-full rounded-full"
-                    style={{ width: `${(userLeaveBalance.casualLeave.remaining / userLeaveBalance.casualLeave.total) * 100}%` }}
-                  />
-                </div>
-                <div className="text-[10px] text-slate-light flex justify-between">
-                  <span>Used: {userLeaveBalance.casualLeave.used}d</span>
-                  <span>Quota: {userLeaveBalance.casualLeave.total}d</span>
-                </div>
+                <span className="font-black text-sm text-accent-amber font-mono">
+                  {userLeaveBalance.casualLeave.remaining} Left
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Weekly Timesheet Summary */}
-          <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-extrabold text-slate-dark text-sm">
-                  Weekly Attendance Timesheet
-                </h3>
-                <p className="text-xs text-slate-muted">Week 34 · Total 41.2 Hours Logged</p>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-accent-mint-light text-accent-mint text-[11px] font-bold">
-                100% On-Time
-              </span>
-            </div>
-
-            {/* Days pills grid */}
-            <div className="grid grid-cols-7 gap-2">
-              {weeklySchedule.map((item, index) => (
-                <div
-                  key={index}
-                  className={`p-3 rounded-xl border text-center flex flex-col items-center justify-between transition-all ${
-                    item.status === 'TODAY'
-                      ? 'bg-brand-light border-brand-blue shadow-sm'
-                      : item.status === 'PRESENT'
-                      ? 'bg-surface-bg border-surface-border'
-                      : 'bg-slate-50 border-dashed border-surface-border text-slate-light'
-                  }`}
-                >
-                  <span className="text-[10px] font-bold uppercase text-slate-muted">{item.day}</span>
-                  <span className="text-xs font-black text-slate-dark my-1">{item.hours}</span>
-                  <span
-                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                      item.status === 'TODAY'
-                        ? 'bg-brand-blue text-white'
-                        : item.status === 'PRESENT'
-                        ? 'bg-accent-mint-light text-accent-mint'
-                        : 'text-slate-light'
-                    }`}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
+          <button
+            onClick={() => setActiveTab('leaves')}
+            className="w-full mt-4 py-2.5 rounded-xl bg-surface-bg hover:bg-brand-light text-slate-dark hover:text-brand-blue font-bold text-xs border border-surface-border transition-all flex items-center justify-center gap-1.5"
+          >
+            <CalendarCheck className="w-3.5 h-3.5" />
+            <span>Manage All Leaves</span>
+          </button>
         </div>
+
+        {/* Card 3: Salary & Latest Payslip */}
+        <div className="bg-white border border-surface-border rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-xs text-slate-muted font-bold mb-4">
+              <span>My Compensation (₹)</span>
+              <span className="text-accent-mint font-bold uppercase text-[10px] bg-accent-mint-light px-2 py-0.5 rounded-full">Disbursed</span>
+            </div>
+
+            <div className="p-4 bg-gradient-to-br from-brand-blue to-accent-cyan rounded-2xl text-white shadow-md">
+              <span className="text-[10px] uppercase font-bold text-white/80">Monthly Net Take-Home</span>
+              <div className="text-2xl font-black font-mono mt-0.5">
+                ₹{userEmployee?.salary?.netSalary?.toLocaleString('en-IN') || '99,850'}
+              </div>
+              <div className="text-[10px] text-white/80 mt-1">
+                Annual CTC: ₹{userEmployee?.salary?.ctc?.toLocaleString('en-IN') || '12,67,200'}
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-muted">
+                <span>Basic Salary:</span>
+                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.basic?.toLocaleString('en-IN') || '65,000'}</span>
+              </div>
+              <div className="flex justify-between text-slate-muted">
+                <span>EPF Contribution (12%):</span>
+                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.providentFund?.toLocaleString('en-IN') || '1,800'}</span>
+              </div>
+              <div className="flex justify-between text-slate-muted">
+                <span>Professional Tax (PT):</span>
+                <span className="font-bold text-slate-dark font-mono">₹{userEmployee?.salary?.professionalTax || '200'}</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenLatestSlip}
+            className="w-full mt-4 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md shadow-brand-blue/20 transition-all flex items-center justify-center gap-1.5"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Download Latest Payslip (August 2026)</span>
+          </button>
+        </div>
+
       </div>
     </div>
   );
 };
+
+export default EmployeeHome;

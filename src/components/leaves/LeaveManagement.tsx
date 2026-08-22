@@ -419,16 +419,7 @@ export const LeaveManagement: React.FC = () => {
               )}
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="font-bold text-slate-dark">Reason for Absence *</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsCopilotOpen(true)}
-                    className="text-brand-blue font-bold flex items-center gap-1 hover:underline"
-                  >
-                    <Sparkles className="w-3 h-3" /> Auto-Draft with AI
-                  </button>
-                </div>
+                <label className="block font-bold text-slate-dark mb-1">Reason for Absence *</label>
                 <textarea
                   rows={3}
                   required

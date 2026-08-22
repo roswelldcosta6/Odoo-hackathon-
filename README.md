@@ -1,98 +1,193 @@
-# 🚀 Dayflow HRMS - Master Product & Engineering Platform
+# 🚀 Dayflow HRMS — Enterprise Workforce & Indian Payroll Platform
 
-> **"Every workday, perfectly aligned."**  
-> *A next-generation, Odoo-inspired Human Resource Management System (HRMS) featuring real-time attendance, intelligent time-off management, role-based payroll, employee document vaults, and AI-powered HR capabilities.*
-
----
-
-## 🎨 Color System & Design Language (Odoo / Cleariq Inspired)
-
-- **Primary Brand Blue**: `#007BFF` (active buttons, active menu item pill, key highlights)
-- **Page Background**: `#F4F7FB` (soft, modern light-grey/blue surface)
-- **Card Containers**: Pure `#FFFFFF` with generous rounded corners (`rounded-2xl`), subtle border (`#E2E8F0`), and soft ambient shadows (`shadow-card`)
-- **Secondary Accents**:
-  - **Cyan / Teal**: `#00D2D3` (radial progress rings, attendance metrics)
-  - **Mint Green**: `#2ED573` (status tags like "GOOD", +% growth chips)
-  - **Warm Amber / Orange**: `#FF9F43` (alerts, HR highlight badge, warning states)
-  - **Soft Lavender**: `#A4B0F5` (bar chart backgrounds and secondary analytics fills)
-- **Typography**: Clean sans-serif (Inter & Plus Jakarta Sans). Dark slate text (`#1E293B`) for primary headers; muted gray (`#8898AA` / `#64748B`) for sub-labels.
+> **Next-Generation Human Resource Management System (HRMS) built for Indian enterprise scale.**  
+> Features dynamic role-based portals (Admin & Employee), automated EPFO/ESI/PT statutory Indian payroll in INR (₹), network-aware biometric attendance muster roll, 6-tab employee KYC & document vault, and intelligent Login ID generation.
 
 ---
 
-## 📑 Core Modules & Features
+## 🌟 Executive Summary & Key Highlights
 
-### 1. Dual-Perspective Role System & Switcher
-- **👑 HR Admin (Marcus Vance - VP of HR)**: Executive analytics dashboard, attendance muster roll, manual overrides, leave approval queue, bulk payroll runner, and audit log.
-- **💼 HR Officer (Sarah Jenkins - Senior HR Generalist)**: Staff management, attendance corrections, leave approvals, and compensation structures.
-- **👤 Employee (Alex Rivera - Lead Full Stack Engineer)**: Live circular punch clock with break mode, weekly timesheets, leave quota deduction estimator, and 1-click PDF payslips.
+Dayflow HRMS solves the modern enterprise workforce management challenge with a clean, high-performance platform inspired by modern SaaS analytics design systems.
 
-### 2. Executive Analytics Dashboard
-- **Top Metric Row (4 Cards)**: Key stats (Total Employees, Present Today, On Leave, Average Salary) with clean numeric readouts, micro-percentage chips (+13% in light green), and miniature circular progress rings.
-- **Segmented Bar Chart**: "Total Attendance & Salary by Unit" featuring rounded pill bars in `#007BFF` and `#A4B0F5` with hover tooltips.
-- **Department Venn Metrics**: Overlapping circular bubble charts in `#007BFF`, `#00D2D3`, and `#2ED573`.
-- **Employee Structure Donut**: Centered on 100% with contract type breakdowns.
-- **Employee Performance / Muster Roll Table**: Soft pill status badges with direct inspection actions.
-
-### 3. Employee Directory & Deep Profile Vault
-- Kanban Card & Dense Table view switchers.
-- Search & Department filters (`Engineering`, `Design`, `Product`, `Human Resources`, `Marketing`, `Finance`).
-- Deep Profile Drawer with 4 tabs:
-  1. *Personal Details*: Contact info, residential address, emergency contact.
-  2. *Job Details*: Designation, department, joining date, reporting manager.
-  3. *Salary Structure*: Itemized Basic, HRA, Special Allowance, Gross, PF, Tax, and Net monthly CTC.
-  4. *Document Vault*: Upload and preview contracts, ID cards, offer letters with verification status badges.
-
-### 4. Real-Time Attendance & Punch Clock
-- Interactive digital clock with live ticking seconds, check-in, break toggle, check-out timer.
-- Auto status calculation (`FULL_DAY (≥8h)`, `HALF_DAY (4-8h)`, `ABSENT (<4h)`).
-- Daily punch timeline, weekly timesheet calendar grid, anomaly flag (e.g. Late punch > 09:30 AM), and Admin manual override with audit log.
-- Geo & Network-aware smart punch (`Office Verified IP` vs `Remote WFH` toggle/badge).
-
-### 5. Leave & Time-Off Engine
-- Leave quota counters with visual progress bars (Paid Annual, Sick, Casual, LOP).
-- Application modal with automated working days calculation (excluding weekends).
-- **⚡ Smart Collision & Bandwidth Engine**: Calculates if $\ge 30\%$ of department is on leave during requested dates and displays real-time warning alerts.
-- HR 1-Click Approve / Reject with mandatory reviewer comment modal and instant balance adjustment.
-
-### 6. Payroll & Compensation Management
-- Configurable salary components: Basic Pay (50%), HRA (30%), Special Allowance (20%), PF Deduction (12% of Basic), Professional Tax (Fixed).
-- Monthly payroll cycle status & bulk batch runner.
-- **📄 1-Click Pixel-Perfect Printable / PDF Payslip**:
-  - Official Dayflow HRMS branded letterhead with company logo & address.
-  - Employee info, bank details, PF number, UAN, pay period (August 2026).
-  - Itemized Earnings vs Deductions table with exact sums.
-  - Net Pay in bold with amount in words.
-  - Verifiable Digital QR Code verification stamp & official authorized signature.
-  - Instant Print / PDF Download functionality (via window.print() styled CSS).
+- **Dual Tailored Portals**: Dedicated, permission-restricted experiences for **Executive Admins / HR Officers** and **Employees**.
+- **🇮🇳 Indian Statutory Payroll Engine (₹ INR)**: Automated calculations for **Basic Salary**, **HRA (40%)**, **Conveyance**, **EPFO Employee & Employer PF (12%)**, **Professional Tax (₹200/mo)**, **ESI (0.75%)**, and **TDS Income Tax**.
+- **📄 Certified Digital Payslips**: Printable PDF-ready salary statements featuring company letterhead (BKC Mumbai), digital signatures, IFSC/UAN/PAN details, and ledger authentication QR codes.
+- **🆔 Dynamic Employee Login ID Formula**: Auto-generated in standard enterprise format: `[Company Code] + [First 2 Letters of First & Last Name] + [Year of Joining] + [Serial 4-Digits]` *(e.g. `DFMAVA20210001`, `DFJODO20230001`)*.
+- **⏱️ Attendance & Muster Roll**: Live punch clock with WFH/Office Wi-Fi detection, streak tracking, shift counters, and attendance overrides.
+- **🔒 Strict Salary Privacy**: Role-based access control ensuring employees only ever view their own personal salary and compensation statements.
+- **📁 6-Tab Employee Vault**: Personal KYC (PAN, Aadhaar), Contact & Addresses, Job & Org, Rupee Salary Breakdown, Document Repository, and Lifecycle Management (Probation, Contract Extension, Formal Termination).
+- **💾 Full Persistence**: Real-time state persistence across `localStorage` and containerized **MySQL 8.0 / Prisma ORM** backend API.
 
 ---
 
-## 🌟 7 Unique Standout Features
+## 🏗️ Architecture & Tech Stack
 
-1. **🤖 AI HR Copilot (Powered by Gemini)**: Natural language policy queries, leave reason auto-drafter, and burnout/overtime anomaly analysis.
-2. **⚡ Smart Leave Collision & Bandwidth Engine**: Visual team clash warnings on leave applications when capacity drops below 60%.
-3. **📄 1-Click Pixel-Perfect PDF Payslip Generator**: Client/server printable branded payslip featuring digital QR verification code.
-4. **🌐 Interactive Drag-and-Drop Org Chart**: Visual tree showing reporting lines from CEO $\rightarrow$ VPs $\rightarrow$ Leads $\rightarrow$ Engineers with collapsible nodes.
-5. **📍 Geo & Network-Aware Smart Punch**: Seamlessly tags punches as `Office Network (Verified IP)` or `Remote / Work-From-Home`.
-6. **🏆 Gamified Attendance & Wellness Streaks**: 5-Day On-Time Streak badges with confetti celebration animations.
-7. **🛡️ Enterprise Immutable Audit Log**: Complete timeline tracking sensitive actions (salary updates, attendance overrides, role promotions) with before/after diffs.
+```mermaid
+graph TD
+  A[React 18 + Vite Frontend] -->|REST API / JWT| B[Node.js + Express Backend]
+  A -->|Local Persistence| C[HTML5 LocalStorage Engine]
+  B -->|Prisma ORM| D[(MySQL 8.0 Database)]
+  B -->|Docker Container| E[dayflow_backend:5000]
+  D -->|Docker Container| F[dayflow_mysql:3307]
+```
+
+### Frontend
+- **Framework**: React 18 with TypeScript
+- **Bundler & Dev Server**: Vite 6
+- **Styling**: Tailwind CSS (Custom Color System & SaaS Design Language)
+- **Icons**: Lucide React
+- **Typography**: Clean Inter / Plus Jakarta Sans
+
+### Backend & Database
+- **Runtime**: Node.js with Express & TypeScript
+- **ORM**: Prisma ORM
+- **Database**: MySQL 8.0 (Containerized via Docker)
+- **Authentication**: JWT & Role-Based Access Control (RBAC)
+- **Validation**: Strict schema checks, 10-digit Indian phone validation, PAN format validation
 
 ---
 
-## 🛠️ Local Development & Quick Start
+## ⚡ Quickstart Guide for Judges
 
+You can run the entire platform in **less than 2 minutes** using either Docker or standalone mode.
+
+### Option A: Complete Full-Stack Run with Docker (Recommended)
+
+#### Step 1: Start Database & Backend API (Docker)
+In the project root directory, run:
 ```bash
-# Clone the repository
-git clone https://github.com/roswelldcosta6/Odoo-hackathon-.git
+docker-compose up -d
+```
+> This spins up:
+> - **MySQL 8.0 Database** on port `3307`
+> - **Dayflow REST API** on `http://localhost:5000`
 
-# Navigate to project
-cd Odoo-hackathon-
-
-# Install dependencies
+#### Step 2: Start the Frontend Web App
+In the same root directory, run:
+```bash
 npm install
-
-# Start Vite dev server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+#### Step 3: Open in Browser
+Visit **[http://localhost:3000](http://localhost:3000)** (or `http://localhost:5173`).
+
+---
+
+### Option B: Standalone Frontend Run
+
+If Docker is not installed on your test machine, the frontend runs seamlessly with rich built-in persistence:
+```bash
+npm install
+npm run dev
+```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
+
+---
+
+## 🔑 Test Credentials & Demo Accounts
+
+Use these pre-configured accounts to evaluate different roles and permission levels:
+
+| Role | Name & Designation | Login ID / Email | Password | Key Capabilities |
+| :--- | :--- | :--- | :--- | :--- |
+| **👑 Admin** | Marcus Vance *(VP of HR)* | `DFMAVA20210001` <br> `admin@dayflow.com` | `Password@123` | Full HRMS command, view all salaries, batch payroll disbursement, manage employees, org chart, audit logs |
+| **💼 HR Officer** | Sarah Jenkins *(Senior HR)* | `DFSAJE20220001` <br> `hr@dayflow.com` | `Password@123` | Onboard staff, generate custom payslips, approve leaves, manage document vaults |
+| **👤 Employee** | John Doe *(Lead Engineer)* | `DFJODO20230001` <br> `employee@dayflow.com` | `Password@123` | Self-service portal, live punch clock, apply leave, view own payslip only, edit profile |
+
+---
+
+## 📊 Core Modules & Feature Walkthrough
+
+### 1. Dynamic Authentication & Onboarding
+- Full-page Sign In and Sign Up workflows matching enterprise specifications.
+- Instant password validation with show/hide toggles.
+- Real-time preview of the auto-generated enterprise Login ID.
+
+### 2. Executive Admin Dashboard
+- **Workforce KPIs**: Total Headcount, Active Today, On Leave, and Average CTC.
+- **Attendance & Salary Analysis**: Unit-wise presence vs compensation expense breakdown.
+- **Daily Muster Roll**: Live presence table with IP address, network mode, and punch timestamps.
+
+### 3. Employee Directory & 6-Tab Profile Vault
+- Searchable directory with department filters and Grid/Table toggle views.
+- **Add Employee Modal**: Live photo upload, Indian phone validation, and instant Login ID assignment.
+- **6-Tab Profile Modal**:
+  1. *Personal Details*: PAN card, masked Aadhaar, blood group, DOB.
+  2. *Contact & Addresses*: Residential & permanent hometown addresses, emergency contact.
+  3. *Job & Organization*: Designation, department, location, joining date, reporting lead.
+  4. *Salary Structure (₹)*: Live earnings & statutory deductions breakdown (Admin/Self only).
+  5. *Document Vault*: Upload, preview, and delete verified employee documentation (PDF/Images).
+  6. *Lifecycle Actions*: Contract extension, probation confirmation, and formal exit/termination processing.
+
+### 4. Indian Statutory Payroll Hub (₹ INR)
+- **Payroll Register**: Shows Basic, HRA, EPF (12%), PT (₹200), TDS, and Net Outflow.
+- **Batch Disbursement**: Disburses salaries across the organization with 1 click.
+- **Manual Payslip Generator**: Admins can generate custom salary slips for any employee with custom bonuses and month parameters.
+- **Interactive Payslip Document**: Certified salary statement with sticky top/bottom actions, Print/PDF export, and working navigation.
+
+### 5. Attendance & Leave Management
+- **Interactive Punch Clock**: Shift progress circle, break timer, and office/WFH toggle.
+- **Leave Application**: Accrued balance cards (Paid Annual, Sick, Casual), collision alerts, and one-click manager approval workflows.
+
+---
+
+## 🛠️ Verification & Test Suite
+
+Run the automated backend test suite to verify all endpoints, database health, and calculations:
+```bash
+# Inside the backend/ directory
+npx ts-node tests/api-test.ts
+```
+Expected output:
+```text
+✔ Checking Health Endpoint (200 OK)
+✔ Admin & Employee JWT Authentication (200 OK)
+✔ Analytics Dashboard & Unit Breakdown (200 OK)
+✔ Punch Clock & Shift Calculation (200 OK)
+✔ Leave Application & Collision Detection (201 Created)
+✔ Indian Payroll & Salary Generation (200 OK)
+=========================================================
+🎉 ALL BACKEND ENDPOINTS PASSED VERIFICATION PERFECTLY!
+=========================================================
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+dayflow-hrms/
+├── backend/
+│   ├── prisma/schema.prisma    # Database schema & models
+│   ├── src/
+│   │   ├── controllers/        # Auth, Employee, Payroll, Attendance controllers
+│   │   ├── routes/             # REST API endpoints
+│   │   └── index.ts            # Express server entrypoint
+│   └── tests/api-test.ts       # Automated verification test suite
+├── src/
+│   ├── components/
+│   │   ├── attendance/         # AttendanceHub & punch register
+│   │   ├── auth/               # AuthPage & login validation
+│   │   ├── dashboard/          # MetricsRow, Charts, MusterRollTable
+│   │   ├── directory/          # EmployeeDirectory & 6-tab EmployeeModal
+│   │   ├── employee-dashboard/ # EmployeeHome & personal hub
+│   │   ├── layout/             # Sidebar & TopBar
+│   │   ├── leaves/             # LeaveManagement & requests
+│   │   ├── org-chart/          # OrgChart tree visualization
+│   │   └── payroll/            # PayrollHub & PayslipModal
+│   ├── context/HRMSContext.tsx # Central persistent state & RBAC
+│   ├── data/mockData.ts        # Seed data with Indian KYC & salary structures
+│   ├── services/api.ts         # Axios/Fetch API client
+│   ├── types/index.ts          # Complete TypeScript definitions
+│   └── App.tsx                 # Root router & layout
+├── docker-compose.yml          # Docker composition (MySQL + Backend)
+├── Dockerfile                  # Production backend container definition
+└── package.json                # Dependencies and build scripts
+```
+
+---
+
+## 📜 License
+
+Built with ❤️ for the Odoo Hackathon 2026. Distributed under the MIT License.

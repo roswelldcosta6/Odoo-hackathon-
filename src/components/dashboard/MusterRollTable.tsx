@@ -8,8 +8,7 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  Sparkles
+  Clock
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 import { Employee } from '../../types';

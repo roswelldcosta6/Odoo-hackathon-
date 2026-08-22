@@ -4,11 +4,11 @@ import { AttendanceSalaryChart } from './AttendanceSalaryChart';
 import { DepartmentAnalysisChart } from './DepartmentAnalysisChart';
 import { EmployeeStructureChart } from './EmployeeStructureChart';
 import { MusterRollTable } from './MusterRollTable';
-import { Sparkles, Calendar, ArrowRight, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Calendar, ArrowRight, ShieldCheck, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 
 export const AdminDashboard: React.FC = () => {
-  const { currentUser, currentRole, setIsCopilotOpen, setActiveTab, leaveRequests } = useHRMS();
+  const { currentUser, currentRole, setActiveTab, leaveRequests, employees } = useHRMS();
 
   const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
 
@@ -32,7 +32,7 @@ export const AdminDashboard: React.FC = () => {
             Welcome back, {currentUser.name}
           </h2>
           <p className="text-sm text-white/85 mt-1 max-w-xl">
-            Real-time workforce health is running at <strong className="text-accent-mint font-bold">92.4% presence</strong> with 0 critical compliance blockers.
+            Real-time workforce health is running at <strong className="text-accent-mint font-bold">92.4% presence</strong> with {employees.length} active team members.
           </p>
         </div>
 
@@ -49,39 +49,39 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           <button
-            onClick={() => setIsCopilotOpen(true)}
+            onClick={() => setActiveTab('payroll')}
             className="px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs border border-white/30 backdrop-blur-sm transition-all flex items-center gap-2"
           >
-            <Sparkles className="w-3.5 h-3.5 text-accent-cyan" />
-            <span>AI HR Copilot</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-accent-cyan" />
+            <span>Payroll Register</span>
           </button>
         </div>
       </div>
 
-      {/* 1. Top Metric Row (4 Cards) */}
+      {/* Row 1: Key Metrics */}
       <MetricsRow />
 
-      {/* 2. Middle Analytics Section (2-Column Grid) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Total Attendance & Salary by Unit */}
-        <AttendanceSalaryChart />
-
-        {/* Right: Department & Income Analysis */}
-        <DepartmentAnalysisChart />
+      {/* Row 2: Charts Grid (Attendance & Salary Unit Breakdown + Department Share) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <AttendanceSalaryChart />
+        </div>
+        <div>
+          <DepartmentAnalysisChart />
+        </div>
       </div>
 
-      {/* 3. Bottom Row (2-Column Grid: Donut + Muster Roll Table) */}
+      {/* Row 3: Employee Structure & Diversity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Employee Structure Donut (1 col) */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-3">
           <EmployeeStructureChart />
         </div>
-
-        {/* Right: Employee Performance / Muster Roll (2 cols) */}
-        <div className="lg:col-span-2">
-          <MusterRollTable />
-        </div>
       </div>
+
+      {/* Row 4: Daily Muster Roll & Live Presence Register */}
+      <MusterRollTable />
     </div>
   );
 };
+
+export default AdminDashboard;

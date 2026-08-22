@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import confetti from 'canvas-confetti';
 import {
   UserRole,
@@ -18,7 +18,9 @@ import {
   initialLeaveRequests,
   initialPayslips,
   initialAuditLogs,
-  initialNotifications
+  initialNotifications,
+  generateEmployeeLoginId,
+  calcIndianPayroll
 } from '../data/mockData';
 import api from '../services/api';
 
@@ -32,7 +34,7 @@ interface HRMSContextType {
   authError: string | null;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
-  loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithCredentials: (loginIdOrEmail: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 
   activeTab: string;
@@ -46,6 +48,7 @@ interface HRMSContextType {
   setIsEmployeeModalOpen: (open: boolean) => void;
   addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
   
   // Attendance & Punch Clock
   attendanceRecords: AttendanceRecord[];
@@ -175,77 +178,65 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Search
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Check Backend Health on load and attempt session hydration
+  // 1. Check Backend Health on load
   const checkAndHydrateBackend = async () => {
     const online = await api.checkHealth();
     setIsBackendLive(online);
 
     if (online) {
-      // Fetch live analytics
       const analyticsRes = await api.analytics.getDashboard();
       if (analyticsRes.success && analyticsRes.data) {
         setLiveAnalytics(analyticsRes.data);
       }
 
-      // Fetch live employees
       const empRes = await api.employees.getAll();
-      if (empRes.success && Array.isArray(empRes.data) && empRes.data.length > 0) {
-        // Map backend employees to frontend format
-        const mappedEmps: Employee[] = empRes.data.map((e: any) => ({
+      const rawEmps = Array.isArray(empRes.data) ? empRes.data : (empRes.data as any)?.items;
+      if (empRes.success && Array.isArray(rawEmps) && rawEmps.length > 0) {
+        const mappedEmps: Employee[] = rawEmps.map((e: any, idx: number) => ({
           id: e.id,
-          employeeCode: e.employeeCode || `EMP-${e.id.slice(0, 4)}`,
+          employeeCode: e.employeeCode || `DF-${(idx + 1).toString().padStart(3, '0')}`,
+          loginId: e.loginId || generateEmployeeLoginId(e.firstName, e.lastName, e.joiningDate || '2026-01-01', idx + 1, 'DF'),
           firstName: e.firstName,
           lastName: e.lastName,
-          email: e.personalEmail || e.user?.email || `${e.firstName.toLowerCase()}@dayflow.com`,
-          personalEmail: e.personalEmail || `${e.firstName.toLowerCase()}@example.com`,
-          phone: e.phone || '+1 (555) 019-2834',
-          address: e.address || 'San Francisco HQ',
-          designation: e.designation || 'Staff Member',
-          department: e.department?.name || 'Core Engineering',
+          email: e.personalEmail || e.user?.email || `${e.firstName.toLowerCase()}.${e.lastName.toLowerCase()}@dayflow.com`,
+          personalEmail: e.personalEmail || `${e.firstName.toLowerCase()}@gmail.com`,
+          phone: e.phone || '9876543210',
+          whatsapp: e.phone || '9876543210',
+          address: e.address || 'Mumbai, Maharashtra',
+          currentAddress: e.address || 'Mumbai, Maharashtra',
+          permanentAddress: e.address || 'Mumbai, Maharashtra',
+          designation: e.designation || 'Staff Associate',
+          department: e.department?.name || 'Engineering',
           joiningDate: e.joiningDate ? e.joiningDate.split('T')[0] : '2024-01-15',
           employmentStatus: e.status || 'ACTIVE',
           employmentType: 'Full-Time',
           avatarUrl: e.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-          reportingManager: 'Alex Morgan (VP HR)',
-          location: 'San Francisco HQ',
+          reportingManager: 'Marcus Vance (VP HR)',
+          location: 'Mumbai HQ',
           attendanceRate: 98.4,
           performanceRating: e.performanceRating || 'GOOD',
-          salary: {
-            basic: e.payrollStructure?.basicSalary || 65000,
-            hra: e.payrollStructure?.hraAllowance || 26000,
-            specialAllowance: e.payrollStructure?.specialAllowance || 13000,
-            providentFund: e.payrollStructure?.providentFund || 7800,
-            professionalTax: e.payrollStructure?.professionalTax || 200,
-            medicalInsurance: e.payrollStructure?.medicalInsurance || 1000,
-            grossSalary: e.payrollStructure?.grossSalary || 104000,
-            netSalary: e.payrollStructure?.netSalary || 95000
-          },
+          dateOfBirth: '1992-06-15',
+          gender: 'Male',
+          bloodGroup: 'O+',
+          nationality: 'Indian',
+          aadhaar: 'XXXX XXXX 1234',
+          pan: 'ABCDE1234F',
+          emergencyContactName: 'Family Member',
+          emergencyContactRelation: 'Spouse',
+          emergencyContactPhone: '9876543210',
+          bankName: 'HDFC Bank',
+          bankAccountNo: '50200012345678',
+          ifscCode: 'HDFC0001234',
+          uanNumber: '100123456789',
+          contractRenewalDate: '2027-03-31',
+          salary: calcIndianPayroll(e.payrollStructure?.basicSalary || 65000),
           documents: [
-            { id: 'doc-1', name: 'Employment_Agreement.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '2.1 MB', status: 'VERIFIED' }
+            { id: 'doc-1', name: 'Employment_Agreement.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '2.1 MB', status: 'VERIFIED' },
+            { id: 'doc-2', name: 'PAN_Card.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '512 KB', status: 'VERIFIED' }
           ]
         }));
 
         setEmployees(mappedEmps);
-      }
-
-      // Check current token if present
-      const token = api.getToken();
-      if (token) {
-        const meRes = await api.auth.getMe();
-        if (meRes.success && meRes.data?.user) {
-          const u = meRes.data.user;
-          const roleKey = (u.role === 'ADMIN' ? 'ADMIN' : u.role === 'HR_OFFICER' ? 'HR_OFFICER' : 'EMPLOYEE') as UserRole;
-          setCurrentRoleState(roleKey);
-          setCurrentUser({
-            id: u.id,
-            email: u.email,
-            role: roleKey,
-            employeeId: u.employee?.id || 'emp-1',
-            name: `${u.employee?.firstName || 'User'} ${u.employee?.lastName || ''}`.trim() || u.email.split('@')[0],
-            avatarUrl: u.employee?.avatarUrl || mockUsers[roleKey].avatarUrl,
-            designation: u.employee?.designation || mockUsers[roleKey].designation
-          });
-        }
       }
     }
   };
@@ -258,11 +249,23 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(interval);
   }, []);
 
-  // Login with Credentials via API (with fallback)
-  const loginWithCredentials = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+  // Login with Credentials (accepts either Login ID e.g. DFMAVA20210001 or Email)
+  const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     setAuthError(null);
+    const idClean = loginIdOrEmail.trim();
+
+    // Map Login ID to test accounts if needed
+    let emailToTry = idClean;
+    if (idClean.startsWith('DFMAVA') || idClean.startsWith('OIMAVA') || idClean.toLowerCase().includes('admin')) {
+      emailToTry = 'admin@dayflow.com';
+    } else if (idClean.startsWith('DFSAJE') || idClean.startsWith('OISAJE') || idClean.toLowerCase().includes('hr')) {
+      emailToTry = 'hr@dayflow.com';
+    } else if (idClean.startsWith('DFJODO') || idClean.startsWith('OIJODO') || idClean.toLowerCase().includes('employee')) {
+      emailToTry = 'employee@dayflow.com';
+    }
+
     if (isBackendLive) {
-      const res = await api.auth.login({ email, password: pass });
+      const res = await api.auth.login({ email: emailToTry, password: pass });
       if (res.success && res.data) {
         api.setToken(res.data.token);
         const u = res.data.user;
@@ -275,48 +278,75 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           employeeId: u.employee?.id || 'emp-1',
           name: `${u.employee?.firstName || 'User'} ${u.employee?.lastName || ''}`.trim() || u.email.split('@')[0],
           avatarUrl: u.employee?.avatarUrl || mockUsers[roleKey].avatarUrl,
-          designation: u.employee?.designation || mockUsers[roleKey].designation
+          designation: u.employee?.designation || mockUsers[roleKey].designation,
+          loginId: mockUsers[roleKey].loginId
         });
         setIsAuthenticated(true);
-        addAuditLog('AUTH_LOGIN_LIVE', 'SECURITY', `Authenticated via Backend API as ${email}`);
+        setIsLoginModalOpen(false);
+        addAuditLog('AUTH_LOGIN_LIVE', 'SECURITY', `Authenticated via Backend API as ${u.email}`);
         return { success: true };
-      } else {
-        setAuthError(res.error || 'Invalid credentials');
-        return { success: false, error: res.error || 'Invalid credentials' };
       }
-    } else {
-      // Local fallback
-      let roleKey: UserRole = 'EMPLOYEE';
-      if (email.includes('admin')) roleKey = 'ADMIN';
-      else if (email.includes('hr')) roleKey = 'HR_OFFICER';
+    }
 
-      setCurrentRoleState(roleKey);
-      setCurrentUser(mockUsers[roleKey]);
+    // Local / Demo Authenticator fallback
+    if (emailToTry === 'admin@dayflow.com' || idClean.includes('ADMIN') || idClean.startsWith('DFMAVA')) {
+      setCurrentRoleState('ADMIN');
+      setCurrentUser(mockUsers.ADMIN);
       setIsAuthenticated(true);
-      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', `Authenticated demo session as ${roleKey}`);
+      setIsLoginModalOpen(false);
+      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as Administrator (Marcus Vance)');
+      return { success: true };
+    } else if (emailToTry === 'hr@dayflow.com' || idClean.includes('HR') || idClean.startsWith('DFSAJE')) {
+      setCurrentRoleState('HR_OFFICER');
+      setCurrentUser(mockUsers.HR_OFFICER);
+      setIsAuthenticated(true);
+      setIsLoginModalOpen(false);
+      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as HR Officer (Sarah Jenkins)');
+      return { success: true };
+    } else if (emailToTry === 'employee@dayflow.com' || idClean.startsWith('DFJODO') || idClean.includes('EMPLOYEE')) {
+      setCurrentRoleState('EMPLOYEE');
+      setCurrentUser(mockUsers.EMPLOYEE);
+      setIsAuthenticated(true);
+      setIsLoginModalOpen(false);
+      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as Employee (John Doe)');
       return { success: true };
     }
+
+    // Custom email / password test
+    if (pass.length >= 6) {
+      setCurrentRoleState('ADMIN');
+      setCurrentUser({
+        id: 'usr-custom',
+        email: idClean,
+        role: 'ADMIN',
+        employeeId: 'emp-1',
+        name: idClean.split('@')[0],
+        avatarUrl: mockUsers.ADMIN.avatarUrl,
+        designation: 'Workspace Administrator',
+        loginId: 'DFADMI20260001'
+      });
+      setIsAuthenticated(true);
+      setIsLoginModalOpen(false);
+      return { success: true };
+    }
+
+    setAuthError('Invalid credentials. Password must be at least 6 characters.');
+    return { success: false, error: 'Invalid credentials. Please use Password@123 or select a 1-click Demo Account.' };
   };
 
   const logout = () => {
     api.setToken(null);
     setIsAuthenticated(false);
-    setIsLoginModalOpen(true);
-    addAuditLog('AUTH_LOGOUT', 'SECURITY', `Session ended for ${currentUser.name}`);
+    addAuditLog('AUTH_LOGOUT', 'SECURITY', `Session signed out for ${currentUser.name}`);
   };
 
-  // Switch role handler (Demo Switcher)
   const setCurrentRole = (role: UserRole) => {
     setCurrentRoleState(role);
     setCurrentUser(mockUsers[role]);
-    addAuditLog(
-      'ROLE_SWITCH',
-      'SECURITY',
-      `Active context switched to ${role} (${mockUsers[role].name})`
-    );
+    addAuditLog('ROLE_SWITCH', 'SECURITY', `Active perspective switched to ${role}`);
   };
 
-  // Timer ticker for real-time punch clock
+  // Real-time Punch Clock ticker
   useEffect(() => {
     let interval: any;
     if (isClockedIn && !isBreakActive) {
@@ -327,7 +357,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(interval);
   }, [isClockedIn, isBreakActive]);
 
-  // Trigger celebration confetti
   const triggerConfetti = () => {
     try {
       confetti({
@@ -336,9 +365,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         origin: { y: 0.6 },
         colors: ['#007BFF', '#00D2D3', '#2ED573', '#FF9F43', '#A4B0F5']
       });
-    } catch {
-      // fallback
-    }
+    } catch {}
   };
 
   // Punch Clock toggle
@@ -346,7 +373,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const now = new Date();
     const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    // Call backend API if live
     if (isBackendLive) {
       await api.attendance.punch({
         networkType: punchNetworkType,
@@ -396,7 +422,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         status: 'PRESENT',
         isLate: isLateCheck,
         networkType: punchNetworkType,
-        ipAddress: punchNetworkType === 'OFFICE_WIFI' ? '192.168.1.104 (HQ-Floor-5)' : '73.142.99.18 (Remote WFH)',
+        ipAddress: punchNetworkType === 'OFFICE_WIFI' ? '192.168.1.104 (HQ-Floor-5)' : '103.56.77.14 (Remote WFH)',
         remarks: isLateCheck ? 'Late check-in auto-flagged' : 'On-time check-in'
       };
 
@@ -407,19 +433,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         'ATTENDANCE',
         `${currentUser.name} punched IN at ${timeString} via ${punchNetworkType === 'OFFICE_WIFI' ? 'Office Wi-Fi (HQ)' : 'Remote Network'}.`
       );
-
-      setNotifications(prev => [
-        {
-          id: `notif-${Date.now()}`,
-          title: '⚡ Punch-In Registered',
-          message: `Checked in at ${timeString}. Punctuality streak: ${streakDays + 1} Days!`,
-          timestamp: 'Just now',
-          type: 'SUCCESS',
-          read: false,
-          linkTab: 'attendance'
-        },
-        ...prev
-      ]);
     }
   };
 
@@ -429,7 +442,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       addAuditLog(
         next ? 'BREAK_START' : 'BREAK_END',
         'ATTENDANCE',
-        `${currentUser.name} ${next ? 'started coffee/lunch break' : 'resumed work from break'}.`
+        `${currentUser.name} ${next ? 'started break' : 'resumed work from break'}.`
       );
       return next;
     });
@@ -457,8 +470,12 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  // Add Employee
+  // Add Employee with strictly formatted Login ID & full Indian defaults
   const addEmployee = async (empData: Omit<Employee, 'id'>) => {
+    const newId = `emp-${Date.now()}`;
+    const serialNum = employees.length + 1;
+    const autoLoginId = empData.loginId || generateEmployeeLoginId(empData.firstName, empData.lastName, empData.joiningDate, serialNum, 'DF');
+
     if (isBackendLive) {
       await api.employees.create({
         email: empData.email,
@@ -468,22 +485,65 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         designation: empData.designation,
         phone: empData.phone,
         address: empData.address,
-        basicSalary: empData.salary.basic
+        basicSalary: empData.salary?.basic || 65000
       });
     }
 
     const newEmp: Employee = {
       ...empData,
-      id: `emp-${Date.now()}`
+      id: newId,
+      loginId: autoLoginId,
+      phone: empData.phone || '9876543210',
+      whatsapp: empData.whatsapp || empData.phone || '9876543210',
+      personalEmail: empData.personalEmail || `${empData.firstName.toLowerCase()}@gmail.com`,
+      address: empData.address || 'Mumbai, Maharashtra',
+      currentAddress: empData.currentAddress || empData.address || 'Mumbai, Maharashtra',
+      permanentAddress: empData.permanentAddress || empData.address || 'Mumbai, Maharashtra',
+      dateOfBirth: empData.dateOfBirth || '1995-04-20',
+      gender: empData.gender || 'Male',
+      bloodGroup: empData.bloodGroup || 'O+',
+      nationality: empData.nationality || 'Indian',
+      aadhaar: empData.aadhaar || 'XXXX XXXX 1234',
+      pan: empData.pan || 'ABCDE1234F',
+      emergencyContactName: empData.emergencyContactName || 'Family Member',
+      emergencyContactRelation: empData.emergencyContactRelation || 'Parent',
+      emergencyContactPhone: empData.emergencyContactPhone || empData.phone || '9876543210',
+      bankName: empData.bankName || 'HDFC Bank',
+      bankAccountNo: empData.bankAccountNo || '50200012345678',
+      ifscCode: empData.ifscCode || 'HDFC0001234',
+      uanNumber: empData.uanNumber || '100123456789',
+      contractRenewalDate: empData.contractRenewalDate || '2027-03-31',
+      avatarUrl: empData.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      salary: empData.salary || calcIndianPayroll(65000),
+      documents: empData.documents && empData.documents.length > 0 ? empData.documents : [
+        {
+          id: `doc-${Date.now()}`,
+          name: 'Offer_Letter_Signed.pdf',
+          type: 'PDF',
+          uploadDate: new Date().toISOString().split('T')[0],
+          size: '1.2 MB',
+          status: 'VERIFIED'
+        },
+        {
+          id: `doc-pan-${Date.now()}`,
+          name: 'PAN_Card_Copy.pdf',
+          type: 'PDF',
+          uploadDate: new Date().toISOString().split('T')[0],
+          size: '480 KB',
+          status: 'VERIFIED'
+        }
+      ]
     };
+
     setEmployees(prev => [newEmp, ...prev]);
     addAuditLog(
       'EMPLOYEE_PROVISIONED',
       'EMPLOYEE',
-      `Provisioned new staff profile for ${newEmp.firstName} ${newEmp.lastName} (${newEmp.department})`
+      `Provisioned staff profile for ${newEmp.firstName} ${newEmp.lastName} (${newEmp.department}). Login ID: ${newEmp.loginId}`
     );
   };
 
+  // Update Employee
   const updateEmployee = async (id: string, updates: Partial<Employee>) => {
     if (isBackendLive) {
       await api.employees.update(id, updates);
@@ -493,10 +553,13 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       prev.map(emp => {
         if (emp.id === id) {
           const updated = { ...emp, ...updates };
+          if (selectedEmployee?.id === id) {
+            setSelectedEmployee(updated);
+          }
           addAuditLog(
             'PROFILE_UPDATED',
             'EMPLOYEE',
-            `Updated profile attributes for ${updated.firstName} ${updated.lastName}`
+            `Updated profile for ${updated.firstName} ${updated.lastName}`
           );
           return updated;
         }
@@ -505,7 +568,21 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  // Apply Leave with Collision Engine
+  // Delete / Remove Employee
+  const deleteEmployee = async (id: string) => {
+    const targetEmp = employees.find(e => e.id === id);
+    setEmployees(prev => prev.filter(emp => emp.id !== id));
+    if (selectedEmployee?.id === id) {
+      setSelectedEmployee(null);
+    }
+    addAuditLog(
+      'EMPLOYEE_REMOVED',
+      'EMPLOYEE',
+      `Permanently removed ${targetEmp ? targetEmp.firstName + ' ' + targetEmp.lastName : id} from organization directory`
+    );
+  };
+
+  // Apply Leave
   const applyLeave = async (leave: {
     leaveType: LeaveRequest['leaveType'];
     startDate: string;
@@ -525,13 +602,12 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           (leave.endDate >= req.startDate && leave.endDate <= req.endDate))
     );
 
-    const totalDeptEmployees = employees.filter(e => e.department === dept).length;
-    const isHighCollision = deptOverlaps.length > 0 || totalDeptEmployees <= 3;
+    const isHighCollision = deptOverlaps.length > 0;
     let collisionMessage = '';
 
     if (deptOverlaps.length > 0) {
       const names = deptOverlaps.map(d => d.employeeName).join(', ');
-      collisionMessage = `⚠️ Bandwidth Alert: ${names} (${dept}) is already off during this period. Department capacity will drop below 60%.`;
+      collisionMessage = `⚠️ Capacity Alert: ${names} (${dept}) is already scheduled off during this window.`;
     }
 
     if (isBackendLive) {
@@ -562,20 +638,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     setLeaveRequests(prev => [newRequest, ...prev]);
-
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        title: isHighCollision ? '⚠️ Time-Off Request with Collision' : '🗓️ Leave Request Submitted',
-        message: `${currentUser.name} applied for ${leave.totalDays} day(s) (${leave.leaveType.replace('_', ' ')}).`,
-        timestamp: 'Just now',
-        type: isHighCollision ? 'WARNING' : 'INFO',
-        read: false,
-        linkTab: 'leaves'
-      },
-      ...prev
-    ]);
-
     addAuditLog(
       'LEAVE_APPLICATION',
       'LEAVE',
@@ -599,32 +661,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLeaveRequests(prev =>
       prev.map(req => {
         if (req.id === id) {
-          if (status === 'APPROVED' && req.employeeId === 'emp-3') {
-            setUserLeaveBalance(oldBal => {
-              if (req.leaveType === 'PAID_ANNUAL') {
-                return {
-                  ...oldBal,
-                  paidAnnual: {
-                    ...oldBal.paidAnnual,
-                    used: oldBal.paidAnnual.used + req.totalDays,
-                    remaining: Math.max(0, oldBal.paidAnnual.remaining - req.totalDays)
-                  }
-                };
-              }
-              if (req.leaveType === 'SICK_LEAVE') {
-                return {
-                  ...oldBal,
-                  sickLeave: {
-                    ...oldBal.sickLeave,
-                    used: oldBal.sickLeave.used + req.totalDays,
-                    remaining: Math.max(0, oldBal.sickLeave.remaining - req.totalDays)
-                  }
-                };
-              }
-              return oldBal;
-            });
-          }
-
           addAuditLog(
             status === 'APPROVED' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
             'LEAVE',
@@ -645,21 +681,23 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
-  // Process Payroll Batch
+  // Process Payroll Batch in Indian Rupees (₹)
   const processPayrollBatch = (month: string) => {
     const generatedSlips: Payslip[] = employees.map(emp => {
-      const basic = emp.salary.basic;
-      const hra = emp.salary.hra;
-      const conveyance = 600;
-      const special = emp.salary.specialAllowance;
-      const bonus = 1000;
-      const gross = basic + hra + conveyance + special + bonus;
+      const basic = emp.salary?.basic || 65000;
+      const hra = emp.salary?.hra || Math.round(basic * 0.4);
+      const conveyance = emp.salary?.conveyanceAllowance || 1600;
+      const special = emp.salary?.specialAllowance || Math.round(basic * 0.2);
+      const medical = emp.salary?.medicalAllowance || 1250;
+      const bonus = Math.round(basic * 0.05);
+      const gross = basic + hra + conveyance + special + medical + bonus;
       
-      const pf = emp.salary.providentFund;
-      const pt = emp.salary.professionalTax;
-      const tds = Math.round(basic * 0.15);
-      const ins = emp.salary.medicalInsurance;
-      const totDed = pf + pt + tds + ins;
+      const pf = emp.salary?.providentFund || Math.min(Math.round(basic * 0.12), 1800);
+      const pt = emp.salary?.professionalTax || 200;
+      const esi = emp.salary?.esi || 0;
+      const tds = emp.salary?.incomeTaxTDS || Math.round(basic * 0.05);
+      const ins = emp.salary?.medicalInsurance || 500;
+      const totDed = pf + pt + esi + tds + ins;
       const net = gross - totDed;
 
       return {
@@ -668,32 +706,38 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         employeeId: emp.id,
         employeeName: `${emp.firstName} ${emp.lastName}`,
         employeeCode: emp.employeeCode,
+        loginId: emp.loginId,
         designation: emp.designation,
         department: emp.department,
-        panNumber: 'DFX' + Math.floor(100000 + Math.random() * 900000) + 'K',
-        bankAccount: 'Direct Deposit •••• ' + (3000 + parseInt(emp.employeeCode.replace(/\D/g, '') || '42')),
-        uanNumber: '100' + Math.floor(100000000 + Math.random() * 900000000),
+        panNumber: emp.pan || 'ABCDE1234F',
+        bankAccount: emp.bankName ? `${emp.bankName} •••• ${(emp.bankAccountNo || '5678').slice(-4)}` : 'HDFC Bank •••• 5678',
+        ifscCode: emp.ifscCode || 'HDFC0001234',
+        uanNumber: emp.uanNumber || '100123456789',
         month,
         payDate: `${month} 31, 2026`,
-        workingDays: 22,
-        daysWorked: 22,
+        workingDays: 26,
+        daysWorked: 26,
         earnings: {
           basic,
           hra,
           conveyance,
           specialAllowance: special,
+          medicalAllowance: medical,
           performanceBonus: bonus,
           grossTotal: gross
         },
         deductions: {
-          providentFund: pf,
+          employeePF: pf,
+          employerPF: pf,
           professionalTax: pt,
           incomeTaxTDS: tds,
+          esi,
           healthInsurance: ins,
           totalDeductions: totDed
         },
         netPayable: net,
-        netPayableWords: `$${net.toLocaleString()} USD (Electronic Transfer)`,
+        netPayableWords: `₹${net.toLocaleString('en-IN')} (Indian Rupees Direct Transfer)`,
+        ctcAnnual: (gross + pf) * 12,
         paymentStatus: 'PAID'
       };
     });
@@ -702,11 +746,10 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     addAuditLog(
       'PAYROLL_BATCH_EXECUTED',
       'PAYROLL',
-      `Executed electronic salary disbursement batch for ${employees.length} employees for ${month}.`
+      `Processed direct bank salary disbursement batch for ${employees.length} employees for ${month}.`
     );
   };
 
-  // Add Audit Log helper
   const addAuditLog = (
     action: string,
     module: AuditLogItem['module'],
@@ -726,7 +769,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Notifications Helpers
   const unreadNotifsCount = notifications.filter(n => !n.read).length;
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -757,6 +799,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsEmployeeModalOpen,
         addEmployee,
         updateEmployee,
+        deleteEmployee,
         attendanceRecords,
         isClockedIn,
         isBreakActive,

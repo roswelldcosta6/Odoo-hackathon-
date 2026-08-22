@@ -41,7 +41,10 @@ export const EmployeeHome: React.FC = () => {
     setIsPayslipModalOpen
   } = useHRMS();
 
-  const userEmployee = employees.find(e => e.id === currentUser.employeeId) || employees[2];
+  const userEmployee = employees.find(e =>
+    e.id === currentUser.employeeId ||
+    e.email.toLowerCase() === currentUser.email.toLowerCase()
+  ) || employees[2];
 
   const formatTime = (totalSecs: number) => {
     const hours = Math.floor(totalSecs / 3600);
@@ -97,10 +100,10 @@ export const EmployeeHome: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-accent-cyan text-xs font-bold font-mono">
-                {currentUser.loginId || 'DFJODO20230001'}
+                {currentUser.email} &bull; {currentUser.loginId || 'DFJODO20230001'}
               </span>
               <span className="text-white/60 text-xs">&bull;</span>
-              <span className="text-white/80 text-xs font-medium">{currentUser.designation}</span>
+              <span className="text-white/80 text-xs font-medium">{currentUser.designation || 'Full-Stack Engineer'}</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight">
               Welcome back, {currentUser.name}

@@ -23,6 +23,59 @@ import {
 } from '../data/mockData';
 import { api } from '../services/api';
 
+export interface RegisteredAccount {
+  id: string;
+  email: string;
+  password?: string;
+  name: string;
+  role: UserRole;
+  employeeId: string;
+  loginId: string;
+  companyName?: string;
+  phone?: string;
+  avatarUrl?: string;
+  designation?: string;
+}
+
+const defaultAccounts: RegisteredAccount[] = [
+  {
+    id: 'usr-admin-1',
+    email: 'admin@dayflow.com',
+    password: 'Password@123',
+    name: 'Marcus Vance',
+    role: 'ADMIN',
+    employeeId: 'emp-1',
+    loginId: 'DFMAVA20210001',
+    companyName: 'Dayflow India',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775?w=150',
+    designation: 'VP of Human Resources'
+  },
+  {
+    id: 'usr-hr-1',
+    email: 'hr@dayflow.com',
+    password: 'Password@123',
+    name: 'Sarah Jenkins',
+    role: 'HR_OFFICER',
+    employeeId: 'emp-2',
+    loginId: 'DFSAJE20220001',
+    companyName: 'Dayflow India',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    designation: 'Senior HR Operations Lead'
+  },
+  {
+    id: 'usr-emp-1',
+    email: 'employee@dayflow.com',
+    password: 'Password@123',
+    name: 'John Doe',
+    role: 'EMPLOYEE',
+    employeeId: 'emp-3',
+    loginId: 'DFJODO20230001',
+    companyName: 'Dayflow India',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    designation: 'Lead Full-Stack Engineer'
+  }
+];
+
 interface HRMSContextType {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
@@ -33,6 +86,7 @@ interface HRMSContextType {
   authError: string | null;
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (open: boolean) => void;
+  registerNewAccount: (data: { companyName: string; companyCode: string; name: string; email: string; phone: string; password: string; avatarUrl?: string }) => Promise<{ success: boolean; error?: string }>;
   loginWithCredentials: (loginIdOrEmail: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   activeTab: string;
@@ -42,7 +96,7 @@ interface HRMSContextType {
   setSelectedEmployee: (emp: Employee | null) => void;
   isEmployeeModalOpen: boolean;
   setIsEmployeeModalOpen: (open: boolean) => void;
-  addEmployee: (emp: Omit<Employee, 'id'>) => void;
+  addEmployee: (emp: Omit<Employee, 'id'>, customPassword?: string) => void;
   updateEmployee: (id: string, data: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
   attendanceRecords: AttendanceRecord[];
@@ -94,6 +148,7 @@ const getStored = <T,>(key: string, fallback: T): T => {
 };
 
 export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [registeredAccounts, setRegisteredAccounts] = useState<RegisteredAccount[]>(() => getStored('df_registered_accounts', defaultAccounts));
   const [currentUser, setCurrentUser] = useState<User>(() => getStored('df_user', mockUsers.ADMIN));
   const [currentRole, setCurrentRole] = useState<UserRole>(() => getStored('df_role', 'ADMIN'));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => getStored('df_auth', false));
@@ -135,6 +190,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
   // Sync state to localStorage
+  useEffect(() => { localStorage.setItem('df_registered_accounts', JSON.stringify(registeredAccounts)); }, [registeredAccounts]);
   useEffect(() => { localStorage.setItem('df_user', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('df_role', JSON.stringify(currentRole)); }, [currentRole]);
   useEffect(() => { localStorage.setItem('df_auth', JSON.stringify(isAuthenticated)); }, [isAuthenticated]);
@@ -196,18 +252,110 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // Explicit Registration method saving User's ACTUAL Name and password into state + database
+  const registerNewAccount = async (data: {
+    companyName: string;
+    companyCode: string;
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    avatarUrl?: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const cleanName = data.name.trim();
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanPhone = data.phone.trim();
+    const [firstName, ...rest] = cleanName.split(' ');
+    const lastName = rest.join(' ') || 'Admin';
+
+    const empId = `emp-${Date.now()}`;
+    const autoLoginId = generateEmployeeLoginId(firstName, lastName, new Date().toISOString().split('T')[0], employees.length + 1, data.companyCode || 'DF');
+    const avatar = data.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150';
+
+    // 1. Create Employee Record
+    const newEmp: Employee = {
+      id: empId,
+      employeeCode: `EMP-${(employees.length + 1).toString().padStart(4, '0')}`,
+      loginId: autoLoginId,
+      firstName,
+      lastName,
+      email: cleanEmail,
+      personalEmail: cleanEmail,
+      phone: cleanPhone,
+      address: 'Corporate Headquarters',
+      designation: 'Executive Director / Admin',
+      department: 'Executive Board',
+      joiningDate: new Date().toISOString().split('T')[0],
+      employmentStatus: 'ACTIVE',
+      employmentType: 'Full-Time',
+      avatarUrl: avatar,
+      reportingManager: 'Board of Directors',
+      location: 'Mumbai HQ',
+      attendanceRate: 100,
+      performanceRating: 'EXCELLENT',
+      salary: calcIndianPayroll(125000),
+      documents: []
+    };
+
+    setEmployees(prev => [newEmp, ...prev]);
+
+    // 2. Create Registered Account Record
+    const newAccount: RegisteredAccount = {
+      id: `usr-${empId}`,
+      email: cleanEmail,
+      password: data.password,
+      name: cleanName,
+      role: 'ADMIN',
+      employeeId: empId,
+      loginId: autoLoginId,
+      companyName: data.companyName,
+      phone: cleanPhone,
+      avatarUrl: avatar,
+      designation: 'Executive Director / Admin'
+    };
+
+    setRegisteredAccounts(prev => [newAccount, ...prev]);
+
+    // 3. Set Current User to the EXACT newly created user
+    const newUser: User = {
+      id: `usr-${empId}`,
+      email: cleanEmail,
+      name: cleanName,
+      role: 'ADMIN',
+      employeeId: empId,
+      avatarUrl: avatar,
+      designation: 'Executive Director / Admin',
+      loginId: autoLoginId
+    };
+
+    setCurrentUser(newUser);
+    setCurrentRole('ADMIN');
+    setIsAuthenticated(true);
+
+    addAuditLog(
+      'COMPANY_REGISTERED',
+      'SECURITY',
+      `Registered company ${data.companyName}. Admin account created for ${cleanName} (${autoLoginId}).`
+    );
+
+    return { success: true };
+  };
+
+  // Secure Credential Login with real password verification
   const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanId = loginIdOrEmail.trim();
+    const cleanId = loginIdOrEmail.trim().toLowerCase();
+    const cleanPass = pass.trim();
 
     if (!cleanId) return { success: false, error: 'Please enter your Login ID or Email.' };
-    if (!pass || pass.length < 4) return { success: false, error: 'Please enter a valid password.' };
+    if (!cleanPass || cleanPass.length < 4) return { success: false, error: 'Please enter a valid password (minimum 4 characters).' };
 
+    // 1. Try Backend API
     try {
       const emailToSubmit = cleanId.includes('@') ? cleanId :
-        cleanId.startsWith('DFMAVA') ? 'admin@dayflow.com' :
-        cleanId.startsWith('DFSAJE') ? 'hr@dayflow.com' : 'employee@dayflow.com';
+        cleanId.startsWith('dfmava') ? 'admin@dayflow.com' :
+        cleanId.startsWith('dfsaje') ? 'hr@dayflow.com' : `${cleanId}@dayflow.com`;
 
-      const res = await api.auth.login({ email: emailToSubmit, password: pass });
+      const res = await api.auth.login({ email: emailToSubmit, password: cleanPass });
       if (res && res.success && res.data?.token && res.data?.user) {
         setCurrentUser(res.data.user);
         setCurrentRole(res.data.user.role);
@@ -216,13 +364,42 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
     } catch {
-      // fallback
+      // API fallback to local accounts
     }
 
+    // 2. Check Local Registered Accounts database
+    const matchedAccount = registeredAccounts.find(acc =>
+      acc.email.toLowerCase() === cleanId ||
+      acc.loginId.toLowerCase() === cleanId
+    );
+
+    if (matchedAccount) {
+      if (matchedAccount.password && matchedAccount.password !== cleanPass) {
+        return { success: false, error: 'Incorrect password. Please verify your password and try again.' };
+      }
+
+      const userObj: User = {
+        id: matchedAccount.id,
+        email: matchedAccount.email,
+        name: matchedAccount.name,
+        role: matchedAccount.role,
+        employeeId: matchedAccount.employeeId,
+        avatarUrl: matchedAccount.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150',
+        designation: matchedAccount.designation || 'Staff',
+        loginId: matchedAccount.loginId
+      };
+
+      setCurrentUser(userObj);
+      setCurrentRole(matchedAccount.role);
+      setIsAuthenticated(true);
+      return { success: true };
+    }
+
+    // 3. Check Employees List by email or Login ID
     const matchedEmployee = employees.find(e =>
-      e.email.toLowerCase() === cleanId.toLowerCase() ||
-      (e.loginId && e.loginId.toUpperCase() === cleanId.toUpperCase()) ||
-      e.employeeCode.toUpperCase() === cleanId.toUpperCase()
+      e.email.toLowerCase() === cleanId ||
+      (e.loginId && e.loginId.toLowerCase() === cleanId) ||
+      e.employeeCode.toLowerCase() === cleanId
     );
 
     if (matchedEmployee) {
@@ -246,29 +423,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    if (cleanId.toLowerCase().includes('admin') || cleanId.toUpperCase().startsWith('DFMAVA')) {
-      setCurrentUser(mockUsers.ADMIN);
-      setCurrentRole('ADMIN');
-      setIsAuthenticated(true);
-      return { success: true };
-    }
-
-    if (cleanId.toLowerCase().includes('hr') || cleanId.toUpperCase().startsWith('DFSAJE')) {
-      setCurrentUser(mockUsers.HR_OFFICER);
-      setCurrentRole('HR_OFFICER');
-      setIsAuthenticated(true);
-      return { success: true };
-    }
-
-    const empUser = {
-      ...mockUsers.EMPLOYEE,
-      email: cleanId.includes('@') ? cleanId : `${cleanId.toLowerCase()}@dayflow.com`,
-      loginId: cleanId
-    };
-    setCurrentUser(empUser);
-    setCurrentRole('EMPLOYEE');
-    setIsAuthenticated(true);
-    return { success: true };
+    return { success: false, error: 'No account found matching this Login ID or Email. Please check your spelling or sign up.' };
   };
 
   const logout = () => {
@@ -277,7 +432,8 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveTab('dashboard');
   };
 
-  const addEmployee = (empData: Omit<Employee, 'id'>) => {
+  // Add Employee and provision their Login Account with Password
+  const addEmployee = (empData: Omit<Employee, 'id'>, customPassword?: string) => {
     const newId = `emp-${Date.now()}`;
     const autoLoginId = empData.loginId || generateEmployeeLoginId(
       empData.firstName,
@@ -286,6 +442,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       employees.length + 1,
       'DF'
     );
+    const passToSave = customPassword || 'Password@123';
 
     const newEmp: Employee = {
       ...empData,
@@ -295,6 +452,22 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setEmployees(prev => [newEmp, ...prev]);
 
+    // Save login credentials account
+    const newAccount: RegisteredAccount = {
+      id: `usr-${newId}`,
+      email: empData.email.toLowerCase(),
+      password: passToSave,
+      name: `${empData.firstName} ${empData.lastName}`,
+      role: empData.department === 'Human Resources' ? 'HR_OFFICER' : 'EMPLOYEE',
+      employeeId: newId,
+      loginId: autoLoginId,
+      avatarUrl: empData.avatarUrl,
+      designation: empData.designation
+    };
+
+    setRegisteredAccounts(prev => [newAccount, ...prev]);
+
+    // Create Initial Payslip
     const newSlip: Payslip = {
       id: `ps-${Date.now()}`,
       slipNumber: `PAY-2026-${(payslips.length + 1).toString().padStart(4, '0')}`,
@@ -337,7 +510,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addAuditLog(
       'EMPLOYEE_PROVISIONED',
       'EMPLOYEE',
-      `Onboarded ${empData.firstName} ${empData.lastName} (${empData.designation}). Login ID: ${autoLoginId}`
+      `Onboarded ${empData.firstName} ${empData.lastName} (${empData.designation}). Login ID: ${autoLoginId}. Credentials provisioned.`
     );
   };
 
@@ -352,28 +525,26 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const toRemove = employees.find(e => e.id === id);
     setEmployees(prev => prev.filter(e => e.id !== id));
     setPayslips(prev => prev.filter(p => p.employeeId !== id));
+    setRegisteredAccounts(prev => prev.filter(a => a.employeeId !== id));
 
     if (toRemove) {
       addAuditLog(
         'EMPLOYEE_REMOVED',
         'EMPLOYEE',
-        `Removed ${toRemove.firstName} ${toRemove.lastName} (${toRemove.loginId || toRemove.employeeCode}) from payroll records.`
+        `Removed ${toRemove.firstName} ${toRemove.lastName} (${toRemove.loginId || toRemove.employeeCode}) from database and account registry.`
       );
     }
   };
 
-  // Robust Attendance Toggle: handles Punch In and Punch Out with real timestamps and hours
   const togglePunchClock = () => {
     const today = new Date().toISOString().split('T')[0];
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (!isClockedIn) {
-      // PUNCH IN
       setIsClockedIn(true);
       setPunchInTime(timeStr);
       setStreakDays(prev => prev + 1);
 
-      // Check if record for today exists
       const existingIdx = attendanceRecords.findIndex(r => r.employeeId === currentUser.employeeId && r.date === today);
 
       if (existingIdx >= 0) {
@@ -389,8 +560,8 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
           employeeId: currentUser.employeeId,
           employeeName: currentUser.name,
           employeeAvatar: currentUser.avatarUrl,
-          department: currentUser.designation.includes('HR') ? 'Human Resources' : 'Engineering',
-          designation: currentUser.designation,
+          department: currentUser.designation?.includes('HR') ? 'Human Resources' : 'Engineering',
+          designation: currentUser.designation || 'Staff',
           date: today,
           checkIn: timeStr,
           totalHours: 0,
@@ -405,14 +576,9 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addAuditLog(
         'PUNCH_IN',
         'ATTENDANCE',
-        `${currentUser.name} punched IN at ${timeStr} via ${punchNetworkType === 'OFFICE_WIFI' ? 'Office Wi-Fi' : 'Remote IP'}.`
+        `${currentUser.name} punched IN at ${timeStr}.`
       );
-
-      if (isBackendLive) {
-        api.attendance.punch({ networkType: punchNetworkType }).catch(() => {});
-      }
     } else {
-      // PUNCH OUT
       const hoursWorked = Math.max(0.5, Number((secondsWorkedToday / 3600).toFixed(1)));
       setIsClockedIn(false);
       setIsBreakActive(false);
@@ -432,12 +598,8 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addAuditLog(
         'PUNCH_OUT',
         'ATTENDANCE',
-        `${currentUser.name} punched OUT at ${timeStr}. Total shift duration: ${hoursWorked} hrs.`
+        `${currentUser.name} punched OUT at ${timeStr}. Duration: ${hoursWorked} hrs.`
       );
-
-      if (isBackendLive) {
-        api.attendance.punch({ networkType: punchNetworkType, remarks: 'Punch out' }).catch(() => {});
-      }
     }
   };
 
@@ -485,7 +647,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addAuditLog(
       'ATTENDANCE_OVERRIDE',
       'ATTENDANCE',
-      `Admin logged attendance for ${emp.firstName} ${emp.lastName}: ${status} (${checkIn})`
+      `Admin logged attendance for ${emp.firstName} ${emp.lastName}: ${status}`
     );
   };
 
@@ -493,13 +655,12 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAttendanceRecords(prev =>
       prev.map(rec => {
         if (rec.id === id) {
-          const updated = {
+          return {
             ...rec,
             checkIn: typeof timeOrStatus === 'string' && timeOrStatus.includes(':') ? timeOrStatus : rec.checkIn,
             status: typeof timeOrStatus === 'string' && !timeOrStatus.includes(':') ? (timeOrStatus as any) : rec.status,
             remarks: reason || `Manually corrected by ${currentUser.name}`
           };
-          return updated;
         }
         return rec;
       })
@@ -507,8 +668,6 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const applyLeave = async (leave: { startDate: string; endDate: string; totalDays: number; leaveType: LeaveRequest['leaveType']; reason: string }) => {
-    const isHighCollision = false;
-
     const newRequest: LeaveRequest = {
       id: `leave-${Date.now()}`,
       employeeId: currentUser.employeeId,
@@ -523,7 +682,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reason: leave.reason,
       status: 'PENDING',
       appliedDate: new Date().toISOString().split('T')[0],
-      hasCollisionWarning: isHighCollision,
+      hasCollisionWarning: false,
       collisionDetails: undefined
     };
 
@@ -545,12 +704,12 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addAuditLog(
       'LEAVE_APPLICATION',
       'LEAVE',
-      `${currentUser.name} submitted ${leave.totalDays}d leave application (${leave.startDate} to ${leave.endDate})`
+      `${currentUser.name} submitted ${leave.totalDays}d leave application`
     );
 
     return {
       success: true,
-      hasCollision: isHighCollision,
+      hasCollision: false,
       collisionMessage: null
     };
   };
@@ -644,6 +803,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authError,
         isLoginModalOpen,
         setIsLoginModalOpen,
+        registerNewAccount,
         loginWithCredentials,
         logout,
         activeTab,

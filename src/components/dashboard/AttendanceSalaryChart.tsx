@@ -1,27 +1,32 @@
 import React, { useState } from 'react';
-import { BarChart3, ArrowUpRight, Filter, Info } from 'lucide-react';
+import { useHRMS } from '../../context/HRMSContext';
 
 interface UnitData {
   unit: string;
-  attendanceRate: number; // percentage
-  salaryExpK: number; // in thousands ($k)
+  attendanceRate: number;
+  salaryExpK: number;
   headcount: number;
 }
 
 export const AttendanceSalaryChart: React.FC = () => {
+  const { liveAnalytics } = useHRMS();
   const [activeMetric, setActiveMetric] = useState<'both' | 'attendance' | 'salary'>('both');
   const [hoveredUnit, setHoveredUnit] = useState<UnitData | null>(null);
 
-  const unitsData: UnitData[] = [
-    { unit: 'Engineering', attendanceRate: 96, salaryExpK: 340, headcount: 48 },
+  const defaultUnitsData: UnitData[] = [
+    { unit: 'Core Engineering', attendanceRate: 96, salaryExpK: 340, headcount: 48 },
     { unit: 'Product & Design', attendanceRate: 94, salaryExpK: 210, headcount: 24 },
-    { unit: 'Marketing', attendanceRate: 89, salaryExpK: 165, headcount: 18 },
-    { unit: 'Human Resources', attendanceRate: 98, salaryExpK: 120, headcount: 12 },
-    { unit: 'Finance', attendanceRate: 99, salaryExpK: 145, headcount: 14 },
-    { unit: 'Sales & Ops', attendanceRate: 91, salaryExpK: 280, headcount: 35 },
+    { unit: 'Marketing & Growth', attendanceRate: 89, salaryExpK: 165, headcount: 18 },
+    { unit: 'People & Culture', attendanceRate: 98, salaryExpK: 120, headcount: 12 },
+    { unit: 'Finance & Ops', attendanceRate: 99, salaryExpK: 145, headcount: 14 },
+    { unit: 'Sales & Client Ops', attendanceRate: 91, salaryExpK: 280, headcount: 35 },
   ];
 
-  const maxSalary = 380; // $380k scale
+  const unitsData: UnitData[] = (liveAnalytics?.attendanceSalaryByUnit && liveAnalytics.attendanceSalaryByUnit.length > 0)
+    ? liveAnalytics.attendanceSalaryByUnit
+    : defaultUnitsData;
+
+  const maxSalary = 380;
 
   return (
     <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card flex flex-col justify-between h-full">
@@ -100,7 +105,7 @@ export const AttendanceSalaryChart: React.FC = () => {
 
         {/* Bars Container */}
         <div className="grid grid-cols-6 gap-2 sm:gap-4 h-52 items-end pt-4 pb-1 relative z-0">
-          {unitsData.map((item, index) => {
+          {unitsData.slice(0, 6).map((item, index) => {
             const attHeight = `${item.attendanceRate * 0.9}%`;
             const salHeight = `${(item.salaryExpK / maxSalary) * 100}%`;
 

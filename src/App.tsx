@@ -13,9 +13,10 @@ import { AuditLogs } from './components/audit/AuditLogs';
 import { SettingsView } from './components/settings/SettingsView';
 import { AICopilotDrawer } from './components/copilot/AICopilotDrawer';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
+import { LoginModal } from './components/auth/LoginModal';
 
 export const AppContent: React.FC = () => {
-  const { currentRole, activeTab } = useHRMS();
+  const { currentRole, activeTab, isLoginModalOpen, setIsLoginModalOpen } = useHRMS();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -61,6 +62,9 @@ export const AppContent: React.FC = () => {
 
       {/* Global Notification Drawer */}
       <NotificationDrawer />
+
+      {/* Global Authentication Modal */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </div>
   );
 };

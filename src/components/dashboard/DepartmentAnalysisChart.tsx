@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { PieChart, TrendingUp, Layers, HelpCircle } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import { useHRMS } from '../../context/HRMSContext';
 
 interface BubbleMetric {
   id: string;
   name: string;
-  share: number; // e.g. 42%
+  share: number;
   budget: string;
   headcount: number;
   color: string;
@@ -17,16 +18,17 @@ interface BubbleMetric {
 }
 
 export const DepartmentAnalysisChart: React.FC = () => {
+  const { liveAnalytics } = useHRMS();
   const [selectedBubble, setSelectedBubble] = useState<string>('eng');
 
-  const bubbles: BubbleMetric[] = [
+  const defaultBubbles: BubbleMetric[] = [
     {
       id: 'eng',
       name: 'Engineering & Tech',
       share: 45,
       budget: '$480,000 / mo',
       headcount: 580,
-      color: '#007BFF', // Primary Brand Blue
+      color: '#007BFF',
       bgColor: 'rgba(0, 123, 255, 0.12)',
       borderColor: '#007BFF',
       textColor: '#007BFF',
@@ -40,7 +42,7 @@ export const DepartmentAnalysisChart: React.FC = () => {
       share: 32,
       budget: '$290,000 / mo',
       headcount: 340,
-      color: '#00D2D3', // Cyan / Teal
+      color: '#00D2D3',
       bgColor: 'rgba(0, 210, 211, 0.15)',
       borderColor: '#00D2D3',
       textColor: '#00B0B1',
@@ -54,7 +56,7 @@ export const DepartmentAnalysisChart: React.FC = () => {
       share: 23,
       budget: '$220,000 / mo',
       headcount: 364,
-      color: '#2ED573', // Mint Green
+      color: '#2ED573',
       bgColor: 'rgba(46, 213, 115, 0.15)',
       borderColor: '#2ED573',
       textColor: '#20A456',
@@ -63,6 +65,16 @@ export const DepartmentAnalysisChart: React.FC = () => {
       size: 115,
     }
   ];
+
+  const bubbles: BubbleMetric[] = (liveAnalytics?.departmentAnalysis && liveAnalytics.departmentAnalysis.length >= 3)
+    ? liveAnalytics.departmentAnalysis.map((b: any, idx: number) => ({
+        ...defaultBubbles[idx],
+        ...b,
+        bgColor: `${b.color || defaultBubbles[idx].color}1F`,
+        borderColor: b.color || defaultBubbles[idx].borderColor,
+        textColor: b.textColor || defaultBubbles[idx].textColor,
+      }))
+    : defaultBubbles;
 
   const current = bubbles.find(b => b.id === selectedBubble) || bubbles[0];
 

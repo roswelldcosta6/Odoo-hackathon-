@@ -1,5 +1,6 @@
 import React from 'react';
-import { Users, UserCheck, CalendarOff, DollarSign, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, CalendarOff, DollarSign, ArrowUpRight } from 'lucide-react';
+import { useHRMS } from '../../context/HRMSContext';
 
 interface MetricCardProps {
   title: string;
@@ -13,40 +14,48 @@ interface MetricCardProps {
 }
 
 export const MetricsRow: React.FC = () => {
+  const { liveAnalytics, employees, attendanceRecords, leaveRequests } = useHRMS();
+
+  const totalEmps = liveAnalytics?.metrics?.totalEmployees ?? employees.length;
+  const presentCount = liveAnalytics?.metrics?.presentToday ?? attendanceRecords.filter(r => r.status === 'PRESENT').length;
+  const presentPct = liveAnalytics?.metrics?.presentRate ?? (totalEmps > 0 ? +(presentCount / totalEmps * 100).toFixed(1) : 92.4);
+  const onLeaveCount = liveAnalytics?.metrics?.onLeave ?? leaveRequests.filter(r => r.status === 'APPROVED' || r.status === 'PENDING').length;
+  const avgSalaryVal = liveAnalytics?.metrics?.averageSalary ?? 84250;
+
   const metrics: MetricCardProps[] = [
     {
       title: 'Total Employees',
-      value: '1,284',
+      value: totalEmps.toLocaleString(),
       subValue: '12 new this month',
       growth: '+13.2%',
       growthPositive: true,
       ringColor: '#007BFF', // Primary Brand Blue
-      ringPercent: 88,
+      ringPercent: Math.min(100, Math.round((totalEmps / 1500) * 100) || 88),
       icon: Users,
     },
     {
       title: 'Present Today',
-      value: '1,180',
-      subValue: '92.4% occupancy',
+      value: presentCount.toLocaleString(),
+      subValue: `${presentPct}% occupancy`,
       growth: '+2.8%',
       growthPositive: true,
       ringColor: '#00D2D3', // Cyan / Teal
-      ringPercent: 92.4,
+      ringPercent: presentPct,
       icon: UserCheck,
     },
     {
       title: 'On Leave',
-      value: '18',
-      subValue: '4 pending approval',
+      value: onLeaveCount.toLocaleString(),
+      subValue: 'Approved & Pending',
       growth: '-1.4%',
       growthPositive: true,
       ringColor: '#FF9F43', // Warm Amber
-      ringPercent: 32,
+      ringPercent: Math.min(100, onLeaveCount * 10),
       icon: CalendarOff,
     },
     {
       title: 'Average Salary',
-      value: '$84,250',
+      value: `$${avgSalaryVal.toLocaleString()}`,
       subValue: 'Per annum / FTE',
       growth: '+4.2%',
       growthPositive: true,

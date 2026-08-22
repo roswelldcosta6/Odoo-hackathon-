@@ -1,26 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Search,
   Bell,
-  Clock,
   Sparkles,
   Wifi,
   Home,
   Flame,
-  ChevronDown,
   Play,
   Square,
   Coffee,
-  CheckCircle2,
-  AlertTriangle
+  Server,
+  LogIn,
+  LogOut
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 
 export const TopBar: React.FC = () => {
   const {
     currentUser,
-    currentRole,
-    setCurrentRole,
     searchQuery,
     setSearchQuery,
     isClockedIn,
@@ -34,15 +31,10 @@ export const TopBar: React.FC = () => {
     unreadNotifsCount,
     setIsNotificationOpen,
     setIsCopilotOpen,
-    setActiveTab
+    isBackendLive,
+    setIsLoginModalOpen,
+    logout
   } = useHRMS();
-
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const formatSeconds = (totalSecs: number) => {
     const hours = Math.floor(totalSecs / 3600);
@@ -80,6 +72,22 @@ export const TopBar: React.FC = () => {
         {/* Right: Actions, Live Punch Widget, Notifications, Profile */}
         <div className="flex items-center gap-3 justify-between md:justify-end flex-wrap">
           
+          {/* Backend Status Live Badge */}
+          <button
+            onClick={() => setIsLoginModalOpen(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+              isBackendLive
+                ? 'bg-accent-mint-light text-emerald-700 border-accent-mint/40'
+                : 'bg-accent-amber-light text-amber-800 border-accent-amber/40'
+            }`}
+            title="Click to manage backend session or login"
+          >
+            <Server className={`w-3.5 h-3.5 ${isBackendLive ? 'text-accent-mint' : 'text-accent-amber'}`} />
+            <span className="hidden sm:inline">
+              {isBackendLive ? 'API Connected' : 'Standalone'}
+            </span>
+          </button>
+
           {/* Geofence & Network Aware Pill */}
           <button
             onClick={() => setPunchNetworkType(punchNetworkType === 'OFFICE_WIFI' ? 'REMOTE_IP' : 'OFFICE_WIFI')}
@@ -93,14 +101,12 @@ export const TopBar: React.FC = () => {
             {punchNetworkType === 'OFFICE_WIFI' ? (
               <>
                 <Wifi className="w-3.5 h-3.5 text-brand-blue" />
-                <span className="hidden sm:inline">Office Wi-Fi (HQ)</span>
-                <span className="sm:hidden">HQ Wi-Fi</span>
+                <span className="hidden sm:inline">Office Wi-Fi</span>
               </>
             ) : (
               <>
                 <Home className="w-3.5 h-3.5 text-accent-lavender" />
-                <span className="hidden sm:inline">Remote / WFH</span>
-                <span className="sm:hidden">Remote</span>
+                <span className="hidden sm:inline">Remote WFH</span>
               </>
             )}
           </button>
@@ -184,8 +190,12 @@ export const TopBar: React.FC = () => {
             )}
           </button>
 
-          {/* User Profile Pill Dropdown */}
-          <div className="flex items-center gap-2 pl-2 border-l border-surface-border">
+          {/* User Profile Dropdown Pill */}
+          <div
+            onClick={() => setIsLoginModalOpen(true)}
+            className="flex items-center gap-2 pl-2 border-l border-surface-border cursor-pointer hover:opacity-90 transition-opacity"
+            title="Click to switch user or sign in"
+          >
             <div className="relative">
               <img
                 src={currentUser.avatarUrl}

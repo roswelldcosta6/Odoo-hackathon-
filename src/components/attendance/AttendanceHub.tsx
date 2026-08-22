@@ -15,7 +15,8 @@ import {
   Play,
   Square,
   Coffee,
-  Check
+  Check,
+  Plus
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 import { AttendanceRecord, AttendanceStatus } from '../../types';
@@ -25,13 +26,17 @@ export const AttendanceHub: React.FC = () => {
     attendanceRecords,
     isClockedIn,
     isBreakActive,
+    punchInTime,
     secondsWorkedToday,
     togglePunchClock,
     toggleBreak,
     punchNetworkType,
     setPunchNetworkType,
     overrideAttendance,
-    currentRole
+    recordStaffAttendance,
+    employees,
+    currentRole,
+    currentUser
   } = useHRMS();
 
   const [filterDept, setFilterDept] = useState<string>('ALL');
@@ -42,6 +47,15 @@ export const AttendanceHub: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [overrideTime, setOverrideTime] = useState<string>('');
   const [overrideReason, setOverrideReason] = useState<string>('');
+
+  // Add attendance modal state (for Admin/HR)
+  const [isAddAttendanceOpen, setIsAddAttendanceOpen] = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState(employees[0]?.id || '');
+  const [markStatus, setMarkStatus] = useState<AttendanceStatus>('PRESENT');
+  const [markCheckIn, setMarkCheckIn] = useState('09:00 AM');
+  const [markRemarks, setMarkRemarks] = useState('Marked by Admin');
+
+  const canManageAttendance = currentRole === 'ADMIN' || currentRole === 'HR_OFFICER';
 
   const filteredRecords = attendanceRecords.filter(rec => {
     const matchesDept = filterDept === 'ALL' || rec.department === filterDept;
@@ -79,6 +93,12 @@ export const AttendanceHub: React.FC = () => {
     setEditingRecord(null);
     setOverrideTime('');
     setOverrideReason('');
+  };
+
+  const handleSaveNewAttendance = (e: React.FormEvent) => {
+    e.preventDefault();
+    recordStaffAttendance(selectedEmpId, markStatus, markCheckIn, markStatus === 'PRESENT' ? '06:00 PM' : undefined, markRemarks);
+    setIsAddAttendanceOpen(false);
   };
 
   const formatSecs = (sec: number) => {
@@ -132,18 +152,26 @@ export const AttendanceHub: React.FC = () => {
         <div className="bg-gradient-to-tr from-brand-blue to-accent-cyan rounded-2xl p-5 text-white shadow-card flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold">My Punch Ticker</span>
-            <span className="font-mono bg-white/20 px-2 py-0.5 rounded text-[11px] font-bold">
+            <button
+              onClick={() => setPunchNetworkType(punchNetworkType === 'OFFICE_WIFI' ? 'REMOTE_IP' : 'OFFICE_WIFI')}
+              className="font-mono bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[11px] font-bold transition-all"
+              title="Click to toggle Network mode"
+            >
               {punchNetworkType === 'OFFICE_WIFI' ? 'HQ Wi-Fi' : 'Remote'}
-            </span>
+            </button>
           </div>
           <div className="font-mono text-2xl font-black tracking-tight my-1">
             {formatSecs(secondsWorkedToday)}
           </div>
           <div className="flex items-center justify-between text-[11px]">
-            <span>{isClockedIn ? 'Working active' : 'Clocked out'}</span>
+            <span>{isClockedIn ? (punchInTime ? `In: ${punchInTime}` : 'Working active') : 'Clocked out'}</span>
             <button
               onClick={togglePunchClock}
-              className="px-2.5 py-1 rounded-lg bg-white text-brand-blue font-bold hover:bg-slate-50 transition-colors"
+              className={`px-3 py-1 rounded-lg font-bold shadow-sm transition-all ${
+                isClockedIn
+                  ? 'bg-accent-rose text-white hover:bg-red-600'
+                  : 'bg-white text-brand-blue hover:bg-slate-50'
+              }`}
             >
               {isClockedIn ? 'Punch Out' : 'Punch In'}
             </button>
@@ -159,11 +187,33 @@ export const AttendanceHub: React.FC = () => {
               Company Muster Roll & Real-Time Punch Register
             </h2>
             <p className="text-xs text-slate-muted">
-              Live biometric & IP geofenced check-in log with anomaly flags
+              Live biometric & IP geofenced check-in log with daily presence timestamps
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
+            {canManageAttendance && (
+              <button
+                type="button"
+                onClick={() => setIsAddAttendanceOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white text-xs font-bold shadow-md shadow-brand-blue/20 transition-all flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Log Staff Punch</span>
+              </button>
+            )}
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-light absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search staff, dept..."
+                className="bg-surface-bg border border-surface-border rounded-xl pl-8 pr-3 py-2 text-xs text-slate-dark focus:border-brand-blue focus:outline-none w-44"
+              />
+            </div>
+
             {/* Dept Filter */}
             <select
               value={filterDept}
@@ -214,7 +264,7 @@ export const AttendanceHub: React.FC = () => {
                 <th className="py-3.5 px-4">Hours Logged</th>
                 <th className="py-3.5 px-4">Network & IP</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
-                <th className="py-3.5 px-4 text-right">Admin Actions</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
@@ -224,7 +274,7 @@ export const AttendanceHub: React.FC = () => {
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-3">
                       <img
-                        src={rec.employeeAvatar}
+                        src={rec.employeeAvatar || 'https://images.unsplash.com/photo-1534528741775?w=150'}
                         alt={rec.employeeName}
                         className="w-8 h-8 rounded-xl object-cover"
                       />
@@ -304,7 +354,7 @@ export const AttendanceHub: React.FC = () => {
 
                   {/* Actions */}
                   <td className="py-3.5 px-4 text-right">
-                    {(currentRole === 'ADMIN' || currentRole === 'HR_OFFICER') ? (
+                    {canManageAttendance ? (
                       <button
                         onClick={() => {
                           setEditingRecord(rec);
@@ -327,9 +377,95 @@ export const AttendanceHub: React.FC = () => {
         </div>
       </div>
 
+      {/* Log Staff Attendance Modal (Admin/HR) */}
+      {isAddAttendanceOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-surface-border rounded-2xl shadow-float w-full max-w-md p-6 animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-surface-border">
+              <h3 className="font-extrabold text-slate-dark text-base">
+                Log Staff Attendance
+              </h3>
+              <button onClick={() => setIsAddAttendanceOpen(false)} className="text-slate-muted hover:text-slate-dark">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewAttendance} className="space-y-4 pt-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-dark mb-1">Select Employee</label>
+                <select
+                  value={selectedEmpId}
+                  onChange={(e) => setSelectedEmpId(e.target.value)}
+                  className="w-full bg-surface-bg border border-surface-border text-slate-dark font-bold rounded-xl p-2.5"
+                >
+                  {employees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} ({emp.department})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-dark mb-1">Status</label>
+                  <select
+                    value={markStatus}
+                    onChange={(e) => setMarkStatus(e.target.value as any)}
+                    className="w-full bg-surface-bg border border-surface-border text-slate-dark rounded-xl p-2.5"
+                  >
+                    <option value="PRESENT">Present</option>
+                    <option value="HALF_DAY">Half Day</option>
+                    <option value="ON_LEAVE">On Leave</option>
+                    <option value="ABSENT">Absent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-dark mb-1">Check-In Time</label>
+                  <input
+                    type="text"
+                    value={markCheckIn}
+                    onChange={(e) => setMarkCheckIn(e.target.value)}
+                    placeholder="09:00 AM"
+                    className="w-full bg-surface-bg border border-surface-border text-slate-dark font-mono rounded-xl p-2.5"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-dark mb-1">Remarks</label>
+                <input
+                  type="text"
+                  value={markRemarks}
+                  onChange={(e) => setMarkRemarks(e.target.value)}
+                  placeholder="e.g. Client meeting / WFH check-in"
+                  className="w-full bg-surface-bg border border-surface-border text-slate-dark rounded-xl p-2.5"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-surface-border">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAttendanceOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-muted hover:bg-surface-bg font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-brand-blue text-white font-bold hover:bg-brand-hover shadow-sm"
+                >
+                  Log Attendance
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Manual Override Modal */}
       {editingRecord && (
-        <div className="fixed inset-0 z-50 bg-slate-dark/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-surface-border rounded-2xl shadow-float w-full max-w-md p-6 animate-scale-in">
             <div className="flex items-center justify-between pb-3 border-b border-surface-border">
               <h3 className="font-extrabold text-slate-dark text-base">
@@ -343,7 +479,7 @@ export const AttendanceHub: React.FC = () => {
             <form onSubmit={handleSaveOverride} className="space-y-4 pt-4 text-xs">
               <div className="bg-surface-bg p-3 rounded-xl border border-surface-border">
                 <p className="font-bold text-slate-dark">{editingRecord.employeeName}</p>
-                <p className="text-slate-muted">{editingRecord.department} · {editingRecord.date}</p>
+                <p className="text-slate-muted">{editingRecord.department} &bull; {editingRecord.date}</p>
               </div>
 
               <div>
@@ -374,7 +510,7 @@ export const AttendanceHub: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setEditingRecord(null)}
-                  className="px-4 py-2 rounded-xl text-slate-muted hover:bg-surface-bg"
+                  className="px-4 py-2 rounded-xl text-slate-muted hover:bg-surface-bg font-bold"
                 >
                   Cancel
                 </button>
@@ -392,3 +528,5 @@ export const AttendanceHub: React.FC = () => {
     </div>
   );
 };
+
+export default AttendanceHub;

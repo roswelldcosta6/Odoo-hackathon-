@@ -55,6 +55,7 @@ interface HRMSContextType {
   streakDays: number;
   togglePunchClock: () => void;
   toggleBreak: () => void;
+  recordStaffAttendance: (empId: string, status: AttendanceRecord['status'], checkIn?: string, checkOut?: string, remarks?: string) => void;
   overrideAttendance: (id: string, timeOrStatus: any, reason?: string) => void;
   leaveRequests: LeaveRequest[];
   userLeaveBalance: LeaveBalance;
@@ -195,7 +196,6 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Robust Login matching credentials or employee Login ID / email
   const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
     const cleanId = loginIdOrEmail.trim();
 
@@ -362,38 +362,131 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Robust Attendance Toggle: handles Punch In and Punch Out with real timestamps and hours
   const togglePunchClock = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
     if (!isClockedIn) {
+      // PUNCH IN
       setIsClockedIn(true);
-      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setPunchInTime(timeStr);
       setStreakDays(prev => prev + 1);
 
-      const record: AttendanceRecord = {
-        id: `att-${Date.now()}`,
-        employeeId: currentUser.employeeId,
-        employeeName: currentUser.name,
-        employeeAvatar: currentUser.avatarUrl,
-        department: 'Engineering',
-        designation: currentUser.designation,
-        date: new Date().toISOString().split('T')[0],
-        checkIn: timeStr,
-        totalHours: 0,
-        status: 'PRESENT',
-        isLate: false,
-        networkType: punchNetworkType,
-        ipAddress: '192.168.1.104'
-      };
-      setAttendanceRecords(prev => [record, ...prev]);
+      // Check if record for today exists
+      const existingIdx = attendanceRecords.findIndex(r => r.employeeId === currentUser.employeeId && r.date === today);
+
+      if (existingIdx >= 0) {
+        setAttendanceRecords(prev => prev.map((r, i) => i === existingIdx ? {
+          ...r,
+          checkIn: timeStr,
+          status: 'PRESENT',
+          networkType: punchNetworkType
+        } : r));
+      } else {
+        const record: AttendanceRecord = {
+          id: `att-${Date.now()}`,
+          employeeId: currentUser.employeeId,
+          employeeName: currentUser.name,
+          employeeAvatar: currentUser.avatarUrl,
+          department: currentUser.designation.includes('HR') ? 'Human Resources' : 'Engineering',
+          designation: currentUser.designation,
+          date: today,
+          checkIn: timeStr,
+          totalHours: 0,
+          status: 'PRESENT',
+          isLate: false,
+          networkType: punchNetworkType,
+          ipAddress: punchNetworkType === 'OFFICE_WIFI' ? '192.168.1.104' : '10.0.0.42'
+        };
+        setAttendanceRecords(prev => [record, ...prev]);
+      }
+
+      addAuditLog(
+        'PUNCH_IN',
+        'ATTENDANCE',
+        `${currentUser.name} punched IN at ${timeStr} via ${punchNetworkType === 'OFFICE_WIFI' ? 'Office Wi-Fi' : 'Remote IP'}.`
+      );
+
+      if (isBackendLive) {
+        api.attendance.punch({ networkType: punchNetworkType }).catch(() => {});
+      }
     } else {
+      // PUNCH OUT
+      const hoursWorked = Math.max(0.5, Number((secondsWorkedToday / 3600).toFixed(1)));
       setIsClockedIn(false);
       setIsBreakActive(false);
-      setPunchInTime(null);
+
+      setAttendanceRecords(prev => prev.map(r => {
+        if (r.employeeId === currentUser.employeeId && r.date === today) {
+          return {
+            ...r,
+            checkOut: timeStr,
+            totalHours: hoursWorked,
+            status: hoursWorked >= 4 ? 'PRESENT' : 'HALF_DAY'
+          };
+        }
+        return r;
+      }));
+
+      addAuditLog(
+        'PUNCH_OUT',
+        'ATTENDANCE',
+        `${currentUser.name} punched OUT at ${timeStr}. Total shift duration: ${hoursWorked} hrs.`
+      );
+
+      if (isBackendLive) {
+        api.attendance.punch({ networkType: punchNetworkType, remarks: 'Punch out' }).catch(() => {});
+      }
     }
   };
 
   const toggleBreak = () => {
     setIsBreakActive(prev => !prev);
+  };
+
+  const recordStaffAttendance = (
+    empId: string,
+    status: AttendanceRecord['status'],
+    checkIn: string = '09:00 AM',
+    checkOut?: string,
+    remarks?: string
+  ) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const existingIdx = attendanceRecords.findIndex(r => r.employeeId === empId && r.date === today);
+
+    const record: AttendanceRecord = {
+      id: existingIdx >= 0 ? attendanceRecords[existingIdx].id : `att-${Date.now()}`,
+      employeeId: emp.id,
+      employeeName: `${emp.firstName} ${emp.lastName}`,
+      employeeAvatar: emp.avatarUrl,
+      department: emp.department,
+      designation: emp.designation,
+      date: today,
+      checkIn: status === 'ABSENT' || status === 'ON_LEAVE' ? '-' : checkIn,
+      checkOut: checkOut || (status === 'PRESENT' ? '06:00 PM' : undefined),
+      totalHours: status === 'PRESENT' ? 8 : status === 'HALF_DAY' ? 4 : 0,
+      status,
+      isLate: checkIn > '09:30 AM',
+      networkType: 'OFFICE_WIFI',
+      ipAddress: '192.168.1.104',
+      remarks
+    };
+
+    if (existingIdx >= 0) {
+      setAttendanceRecords(prev => prev.map((r, i) => i === existingIdx ? record : r));
+    } else {
+      setAttendanceRecords(prev => [record, ...prev]);
+    }
+
+    addAuditLog(
+      'ATTENDANCE_OVERRIDE',
+      'ATTENDANCE',
+      `Admin logged attendance for ${emp.firstName} ${emp.lastName}: ${status} (${checkIn})`
+    );
   };
 
   const overrideAttendance = (id: string, timeOrStatus: any, reason?: string) => {
@@ -573,6 +666,7 @@ export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         streakDays,
         togglePunchClock,
         toggleBreak,
+        recordStaffAttendance,
         overrideAttendance,
         leaveRequests,
         userLeaveBalance,

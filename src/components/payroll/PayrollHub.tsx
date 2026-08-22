@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   CreditCard,
   FileText,
@@ -10,7 +10,7 @@ import {
   Calculator,
   Shield,
   Search,
-  Sparkles
+  Lock
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 import { Payslip } from '../../types';
@@ -25,16 +25,28 @@ export const PayrollHub: React.FC = () => {
     setIsPayslipModalOpen,
     processPayrollBatch,
     employees,
-    currentRole
+    currentRole,
+    currentUser
   } = useHRMS();
 
   const [selectedMonth, setSelectedMonth] = useState('August 2026');
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const totalDisbursed = payslips.reduce((acc, curr) => acc + curr.netPayable, 0);
+  const isEmployee = currentRole === 'EMPLOYEE';
 
-  const filteredSlips = payslips.filter(s =>
+  // Role security: Employees ONLY see their own payslips
+  const accessibleSlips = isEmployee
+    ? payslips.filter(s =>
+        s.employeeId === currentUser.employeeId ||
+        s.employeeName.toLowerCase() === currentUser.name.toLowerCase() ||
+        (currentUser.loginId && s.loginId === currentUser.loginId)
+      )
+    : payslips;
+
+  const totalDisbursed = accessibleSlips.reduce((acc, curr) => acc + curr.netPayable, 0);
+
+  const filteredSlips = accessibleSlips.filter(s =>
     s.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.loginId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -42,6 +54,7 @@ export const PayrollHub: React.FC = () => {
   );
 
   const handleRunBatch = () => {
+    if (isEmployee) return;
     setIsProcessing(true);
     setTimeout(() => {
       processPayrollBatch(selectedMonth);
@@ -56,12 +69,12 @@ export const PayrollHub: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Payroll Metrics in Indian Rupees (₹) */}
+      {/* Top Banner & Payroll Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Monthly Payout */}
+        {/* Metric 1 */}
         <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between text-xs font-bold text-slate-muted uppercase">
-            <span>Total Monthly Net</span>
+            <span>{isEmployee ? 'My Monthly Net' : 'Total Monthly Net'}</span>
             <span className="text-accent-mint font-bold">+4.2% MoM</span>
           </div>
           <h3 className="text-2xl font-black text-slate-dark mt-1 font-mono">
@@ -70,41 +83,41 @@ export const PayrollHub: React.FC = () => {
           <p className="text-xs text-slate-light mt-1">Disbursed for {selectedMonth}</p>
         </div>
 
-        {/* Total Slips Generated */}
+        {/* Metric 2 */}
         <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between text-xs font-bold text-slate-muted uppercase">
-            <span>Processed Slips</span>
+            <span>{isEmployee ? 'My Generated Slips' : 'Processed Slips'}</span>
             <span className="w-2 h-2 rounded-full bg-accent-mint animate-pulse" />
           </div>
           <h3 className="text-2xl font-black text-slate-dark mt-1 font-mono">
-            {payslips.length} / {employees.length}
+            {accessibleSlips.length} {isEmployee ? 'Available' : `/ ${employees.length}`}
           </h3>
           <p className="text-xs text-slate-light mt-1">100% Direct Bank Transfer Dispatched</p>
         </div>
 
-        {/* Avg Salary / Employee */}
+        {/* Metric 3 */}
         <div className="bg-white border border-surface-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between text-xs font-bold text-slate-muted uppercase">
-            <span>Average Net Salary</span>
+            <span>{isEmployee ? 'Payment Currency' : 'Average Net Salary'}</span>
             <span className="text-brand-blue font-mono font-bold">INR (₹)</span>
           </div>
           <h3 className="text-2xl font-black text-slate-dark mt-1 font-mono">
-            ₹{payslips.length > 0 ? Math.round(totalDisbursed / payslips.length).toLocaleString('en-IN') : '75,000'}
+            ₹{accessibleSlips.length > 0 ? Math.round(totalDisbursed / accessibleSlips.length).toLocaleString('en-IN') : '75,000'}
           </h3>
-          <p className="text-xs text-slate-light mt-1">Per active headcount</p>
+          <p className="text-xs text-slate-light mt-1">{isEmployee ? 'Direct NEFT / RTGS Transfer' : 'Per active headcount'}</p>
         </div>
 
-        {/* Batch Generator Action Card */}
+        {/* Metric 4 / Batch Runner */}
         <div className="bg-gradient-to-tr from-brand-blue to-accent-cyan rounded-2xl p-5 text-white shadow-card flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs font-bold">
-            <span>Indian Payroll Batch</span>
-            <Sparkles className="w-4 h-4 text-white animate-spin" style={{ animationDuration: '6s' }} />
+            <span>{isEmployee ? 'Payroll Status' : 'Indian Payroll Batch'}</span>
+            <Shield className="w-4 h-4 text-white" />
           </div>
           <div className="my-2">
             <div className="text-xs text-white/80">Batch: {selectedMonth}</div>
-            <div className="text-sm font-extrabold text-white">EPFO & TDS Compliant</div>
+            <div className="text-sm font-extrabold text-white">EPFO, ESI & TDS Compliant</div>
           </div>
-          {currentRole !== 'EMPLOYEE' ? (
+          {!isEmployee ? (
             <button
               onClick={handleRunBatch}
               disabled={isProcessing}
@@ -114,36 +127,38 @@ export const PayrollHub: React.FC = () => {
               <span>{isProcessing ? 'Processing Batch...' : 'Disburse Salaries'}</span>
             </button>
           ) : (
-            <div className="text-xs text-white/90 font-medium">Auto-disbursed on 31st</div>
+            <div className="text-xs text-white/90 font-medium">Disbursed on last working day</div>
           )}
         </div>
       </div>
 
-      {/* Main Payslip Management Card */}
+      {/* Main Payslip Table */}
       <div className="bg-white border border-surface-border rounded-2xl shadow-card p-6 space-y-6">
-        
-        {/* Table Header Controls */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-extrabold text-slate-dark tracking-tight">
-              Indian Payroll Register & Salary Slips
+              {isEmployee ? 'My Official Salary Payslips' : 'Indian Payroll Register & Salary Slips'}
             </h3>
             <p className="text-xs text-slate-muted">
-              Auto-calculated PF (12%), Professional Tax (₹200), ESI (0.75%), TDS, and Direct Bank NEFT/RTGS.
+              {isEmployee
+                ? 'View and download your monthly salary statements with EPF, PT, and tax breakdowns.'
+                : 'Auto-calculated PF (12%), Professional Tax (₹200), ESI (0.75%), TDS, and Direct Bank NEFT/RTGS.'}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 text-slate-light absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search staff, code, dept..."
-                className="bg-surface-bg border border-surface-border rounded-xl pl-9 pr-3 py-2 text-xs text-slate-dark focus:border-brand-blue focus:outline-none w-56"
-              />
-            </div>
+            {!isEmployee && (
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-light absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search staff, code, dept..."
+                  className="bg-surface-bg border border-surface-border rounded-xl pl-9 pr-3 py-2 text-xs text-slate-dark focus:border-brand-blue focus:outline-none w-56"
+                />
+              </div>
+            )}
 
             <select
               value={selectedMonth}
@@ -218,7 +233,7 @@ export const PayrollHub: React.FC = () => {
 
       </div>
 
-      {/* Global Payslip Modal */}
+      {/* Payslip Modal */}
       <PayslipModal />
     </div>
   );

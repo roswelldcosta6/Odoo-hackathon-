@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { useHRMS } from './context/HRMSContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { TopBar } from './components/layout/TopBar';
@@ -11,13 +11,11 @@ import { PayrollHub } from './components/payroll/PayrollHub';
 import { OrgChart } from './components/org-chart/OrgChart';
 import { AuditLogs } from './components/audit/AuditLogs';
 import { SettingsView } from './components/settings/SettingsView';
-import { AICopilotDrawer } from './components/copilot/AICopilotDrawer';
 import { NotificationDrawer } from './components/common/NotificationDrawer';
-import { LoginModal } from './components/auth/LoginModal';
 import { AuthPage } from './components/auth/AuthPage';
 
-export const AppContent: React.FC = () => {
-  const { currentRole, activeTab, isLoginModalOpen, setIsLoginModalOpen, isAuthenticated } = useHRMS();
+export const App: React.FC = () => {
+  const { currentRole, activeTab, isAuthenticated } = useHRMS();
 
   // If not authenticated, render the dedicated dynamic Full-Page Sign In / Sign Up
   if (!isAuthenticated) {
@@ -63,16 +61,10 @@ export const AppContent: React.FC = () => {
         </main>
       </div>
 
-      {/* Global AI Copilot Drawer */}
-      <AICopilotDrawer />
-
       {/* Global Notification Drawer */}
       <NotificationDrawer />
-
-      {/* Global Authentication Modal */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </div>
   );
 };
 
-export default AppContent;
+export default App;

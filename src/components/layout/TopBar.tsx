@@ -2,15 +2,12 @@ import React from 'react';
 import {
   Search,
   Bell,
-  Sparkles,
   Wifi,
   Home,
   Flame,
   Play,
   Square,
   Coffee,
-  Server,
-  LogIn,
   LogOut
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
@@ -30,9 +27,6 @@ export const TopBar: React.FC = () => {
     streakDays,
     unreadNotifsCount,
     setIsNotificationOpen,
-    setIsCopilotOpen,
-    isBackendLive,
-    setIsLoginModalOpen,
     logout
   } = useHRMS();
 
@@ -47,7 +41,7 @@ export const TopBar: React.FC = () => {
     <header className="bg-white border-b border-surface-border sticky top-0 z-10 px-6 py-3.5 shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         
-        {/* Left: Search Bar with Pill Styling */}
+        {/* Search Bar */}
         <div className="flex items-center gap-3 flex-1 max-w-md">
           <div className="relative w-full">
             <Search className="w-4 h-4 text-slate-light absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -72,23 +66,7 @@ export const TopBar: React.FC = () => {
         {/* Right: Actions, Live Punch Widget, Notifications, Profile */}
         <div className="flex items-center gap-3 justify-between md:justify-end flex-wrap">
           
-          {/* Backend Status Live Badge */}
-          <button
-            onClick={() => setIsLoginModalOpen(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              isBackendLive
-                ? 'bg-accent-mint-light text-emerald-700 border-accent-mint/40'
-                : 'bg-accent-amber-light text-amber-800 border-accent-amber/40'
-            }`}
-            title="Click to manage backend session or login"
-          >
-            <Server className={`w-3.5 h-3.5 ${isBackendLive ? 'text-accent-mint' : 'text-accent-amber'}`} />
-            <span className="hidden sm:inline">
-              {isBackendLive ? 'API Connected' : 'Standalone'}
-            </span>
-          </button>
-
-          {/* Geofence & Network Aware Pill */}
+          {/* Network Aware Pill */}
           <button
             onClick={() => setPunchNetworkType(punchNetworkType === 'OFFICE_WIFI' ? 'REMOTE_IP' : 'OFFICE_WIFI')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
@@ -96,7 +74,7 @@ export const TopBar: React.FC = () => {
                 ? 'bg-brand-light text-brand-blue border-brand-subtle'
                 : 'bg-accent-lavender-light text-slate-dark border-accent-lavender'
             }`}
-            title="Click to toggle Network Geofence Tag"
+            title="Toggle Work Location Mode"
           >
             {punchNetworkType === 'OFFICE_WIFI' ? (
               <>
@@ -168,15 +146,6 @@ export const TopBar: React.FC = () => {
             )}
           </div>
 
-          {/* AI Copilot Button */}
-          <button
-            onClick={() => setIsCopilotOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-brand-blue to-accent-cyan text-white text-xs font-bold shadow-md shadow-brand-blue/20 hover:opacity-95 transition-opacity"
-          >
-            <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
-            <span className="hidden lg:inline">AI Copilot</span>
-          </button>
-
           {/* Notifications Bell */}
           <button
             onClick={() => setIsNotificationOpen(true)}
@@ -190,15 +159,11 @@ export const TopBar: React.FC = () => {
             )}
           </button>
 
-          {/* User Profile Dropdown Pill */}
-          <div
-            onClick={() => setIsLoginModalOpen(true)}
-            className="flex items-center gap-2 pl-2 border-l border-surface-border cursor-pointer hover:opacity-90 transition-opacity"
-            title="Click to switch user or sign in"
-          >
+          {/* User Profile Pill & Sign Out */}
+          <div className="flex items-center gap-2 pl-2 border-l border-surface-border">
             <div className="relative">
               <img
-                src={currentUser.avatarUrl}
+                src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                 alt={currentUser.name}
                 className="w-8 h-8 rounded-full object-cover border border-brand-subtle"
               />
@@ -208,6 +173,13 @@ export const TopBar: React.FC = () => {
               <div className="text-xs font-bold text-slate-dark leading-tight">{currentUser.name}</div>
               <div className="text-[10px] text-slate-light leading-tight">{currentUser.designation}</div>
             </div>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-accent-rose hover:bg-rose-50 transition-colors ml-1"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
 
         </div>
@@ -215,3 +187,5 @@ export const TopBar: React.FC = () => {
     </header>
   );
 };
+
+export default TopBar;

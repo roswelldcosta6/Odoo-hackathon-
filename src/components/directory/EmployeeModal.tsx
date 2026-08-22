@@ -3,7 +3,7 @@ import {
   X, User, Briefcase, DollarSign, FileText, Upload, CheckCircle2,
   AlertCircle, Clock, Shield, Save, Trash2, Copy, Calendar,
   Phone, Mail, MapPin, Heart, CreditCard, Building, UserMinus,
-  AlertTriangle, RefreshCw, Camera
+  AlertTriangle, RefreshCw, Camera, Lock
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
 import { Employee, EmployeeDocument } from '../../types';
@@ -16,7 +16,8 @@ export const EmployeeModal: React.FC = () => {
     setIsEmployeeModalOpen,
     updateEmployee,
     deleteEmployee,
-    currentRole
+    currentRole,
+    currentUser
   } = useHRMS();
 
   const [activeTab, setActiveTab] = useState<'personal' | 'contact' | 'job' | 'salary' | 'docs' | 'lifecycle'>('personal');
@@ -113,6 +114,8 @@ export const EmployeeModal: React.FC = () => {
 
   if (!isEmployeeModalOpen || !selectedEmployee) return null;
   const canEditAll = currentRole === 'ADMIN' || currentRole === 'HR_OFFICER';
+  const isSelf = selectedEmployee.id === currentUser.employeeId;
+  const canViewSalary = canEditAll || isSelf;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -241,6 +244,15 @@ export const EmployeeModal: React.FC = () => {
     setTimeout(() => setCopiedLoginId(false), 2000);
   };
 
+  const tabs = [
+    { id: 'personal', label: 'Personal Details', icon: User, show: true },
+    { id: 'contact', label: 'Contact & Addresses', icon: Phone, show: true },
+    { id: 'job', label: 'Job & Organization', icon: Briefcase, show: true },
+    { id: 'salary', label: 'Salary Structure (₹)', icon: DollarSign, show: canViewSalary },
+    { id: 'docs', label: 'Documents Vault (' + (selectedEmployee.documents?.length || 0) + ')', icon: FileText, show: true },
+    { id: 'lifecycle', label: 'Lifecycle Actions', icon: Shield, show: canEditAll },
+  ].filter(t => t.show);
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white border border-surface-border rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-scale-in my-8">
@@ -255,7 +267,7 @@ export const EmployeeModal: React.FC = () => {
                   alt={selectedEmployee.firstName}
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-white/40 shadow-md bg-slate-800"
                 />
-                {canEditAll && (
+                {(canEditAll || isSelf) && (
                   <label className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                     <Camera className="w-5 h-5 text-white" />
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
@@ -320,14 +332,7 @@ export const EmployeeModal: React.FC = () => {
 
         {/* Tab Navigation */}
         <div className="flex items-center border-b border-surface-border px-6 bg-surface-bg text-xs font-bold text-slate-muted overflow-x-auto">
-          {[
-            { id: 'personal', label: 'Personal Details', icon: User },
-            { id: 'contact', label: 'Contact & Addresses', icon: Phone },
-            { id: 'job', label: 'Job & Organization', icon: Briefcase },
-            { id: 'salary', label: 'Salary Structure (₹)', icon: DollarSign },
-            { id: 'docs', label: 'Documents Vault (' + (selectedEmployee.documents?.length || 0) + ')', icon: FileText },
-            { id: 'lifecycle', label: 'Lifecycle Actions', icon: Shield },
-          ].map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -355,7 +360,7 @@ export const EmployeeModal: React.FC = () => {
                   <label className="block font-bold text-slate-dark mb-1">First Name</label>
                   <input
                     type="text"
-                    disabled={!canEditAll}
+                    disabled={!canEditAll && !isSelf}
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     className="w-full bg-surface-bg border border-surface-border text-slate-dark rounded-xl p-2.5 focus:border-brand-blue focus:outline-none"
@@ -365,7 +370,7 @@ export const EmployeeModal: React.FC = () => {
                   <label className="block font-bold text-slate-dark mb-1">Last Name</label>
                   <input
                     type="text"
-                    disabled={!canEditAll}
+                    disabled={!canEditAll && !isSelf}
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     className="w-full bg-surface-bg border border-surface-border text-slate-dark rounded-xl p-2.5 focus:border-brand-blue focus:outline-none"
@@ -619,7 +624,7 @@ export const EmployeeModal: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'salary' && (
+          {activeTab === 'salary' && canViewSalary && (
             <div className="space-y-4">
               <div className="p-4 bg-surface-bg border border-surface-border rounded-2xl space-y-3">
                 <span className="font-bold text-slate-dark block">Indian Banking Details</span>
@@ -762,7 +767,7 @@ export const EmployeeModal: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-slate-dark">Employee Document Repository</span>
-                {canEditAll && (
+                {(canEditAll || isSelf) && (
                   <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-blue text-white font-bold text-xs cursor-pointer hover:bg-brand-hover shadow-sm transition-all">
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload Document</span>
@@ -788,7 +793,7 @@ export const EmployeeModal: React.FC = () => {
                         <span className="px-2 py-0.5 rounded-full bg-accent-mint-light text-accent-mint text-[10px] font-bold">
                           {doc.status}
                         </span>
-                        {canEditAll && (
+                        {(canEditAll || isSelf) && (
                           <button
                             type="button"
                             onClick={() => handleRemoveDoc(doc.id)}
@@ -810,27 +815,25 @@ export const EmployeeModal: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'lifecycle' && (
+          {activeTab === 'lifecycle' && canEditAll && (
             <div className="space-y-4">
               <div className="p-4 bg-surface-bg border border-surface-border rounded-2xl flex items-center justify-between">
                 <div>
                   <div className="font-bold text-slate-dark">Contract Renewal Milestone</div>
                   <div className="text-xs text-slate-muted">Next renewal: <strong>{formData.contractRenewalDate || '2027-03-31'}</strong></div>
                 </div>
-                {canEditAll && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData(p => ({ ...p, contractRenewalDate: '2028-03-31' }));
-                      setSavedSuccess(true);
-                      setTimeout(() => setSavedSuccess(false), 2000);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-surface-border text-brand-blue font-bold text-xs hover:bg-brand-light flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Extend 1 Year</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(p => ({ ...p, contractRenewalDate: '2028-03-31' }));
+                    setSavedSuccess(true);
+                    setTimeout(() => setSavedSuccess(false), 2000);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white border border-surface-border text-brand-blue font-bold text-xs hover:bg-brand-light flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Extend 1 Year</span>
+                </button>
               </div>
 
               {selectedEmployee.employmentStatus === 'PROBATION' && (
@@ -839,22 +842,20 @@ export const EmployeeModal: React.FC = () => {
                     <div className="font-bold text-accent-amber">Probation Review</div>
                     <div className="text-xs text-slate-600">Employee is currently on trial probation.</div>
                   </div>
-                  {canEditAll && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        updateEmployee(selectedEmployee.id, { employmentStatus: 'ACTIVE' });
-                        setIsEmployeeModalOpen(false);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-accent-mint text-white font-bold text-xs hover:bg-emerald-600 shadow-sm"
-                    >
-                      Confirm Permanent
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateEmployee(selectedEmployee.id, { employmentStatus: 'ACTIVE' });
+                      setIsEmployeeModalOpen(false);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-accent-mint text-white font-bold text-xs hover:bg-emerald-600 shadow-sm"
+                  >
+                    Confirm Permanent
+                  </button>
                 </div>
               )}
 
-              {canEditAll && selectedEmployee.employmentStatus !== 'TERMINATED' && (
+              {selectedEmployee.employmentStatus !== 'TERMINATED' && (
                 <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl space-y-3">
                   <div className="flex items-center gap-2 text-rose-700 font-bold">
                     <AlertTriangle className="w-4 h-4" />
@@ -947,13 +948,15 @@ export const EmployeeModal: React.FC = () => {
             >
               Close
             </button>
-            <button
-              onClick={handleSave}
-              className="px-5 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white text-xs font-bold shadow-md flex items-center gap-1.5"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save Details</span>
-            </button>
+            {(canEditAll || isSelf) && (
+              <button
+                onClick={handleSave}
+                className="px-5 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white text-xs font-bold shadow-md flex items-center gap-1.5"
+              >
+                <Save className="w-4 h-4" />
+                <span>Save Details</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

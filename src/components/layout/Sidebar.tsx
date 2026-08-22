@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -6,44 +6,58 @@ import {
   CalendarCheck,
   CreditCard,
   Network,
-  Sparkles,
   ShieldAlert,
   Settings,
-  ChevronRight,
-  ShieldCheck,
-  UserCheck,
-  User as UserIcon,
-  LogOut
+  LogOut,
+  LucideIcon
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
-import { UserRole } from '../../types';
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: string;
+  alert?: boolean;
+}
 
 export const Sidebar: React.FC = () => {
   const {
     currentRole,
-    setCurrentRole,
     currentUser,
     activeTab,
     setActiveTab,
-    setIsCopilotOpen,
-    logout
+    logout,
+    employees,
+    leaveRequests
   } = useHRMS();
 
-  const navItems = [
+  const pendingLeaves = leaveRequests.filter(r => r.status === 'PENDING').length;
+
+  const adminNavItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'employees', label: 'Employees', icon: Users, badge: '10' },
+    { id: 'employees', label: 'Employees', icon: Users, badge: employees.length.toString() },
     { id: 'attendance', label: 'Attendance', icon: Clock, badge: 'Live' },
-    { id: 'leaves', label: 'Leave Management', icon: CalendarCheck, alert: true },
+    { id: 'leaves', label: 'Leave Approvals', icon: CalendarCheck, alert: pendingLeaves > 0 },
     { id: 'payroll', label: 'Payroll & Slips (₹)', icon: CreditCard },
     { id: 'org-chart', label: 'Org Hierarchy', icon: Network },
-    { id: 'copilot', label: 'AI HR Copilot', icon: Sparkles, highlight: true },
-    { id: 'audit', label: 'Audit Trail', icon: ShieldAlert, adminOnly: true },
+    { id: 'audit', label: 'Audit Trail', icon: ShieldAlert },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
+  const employeeNavItems: NavItem[] = [
+    { id: 'dashboard', label: 'My Dashboard', icon: LayoutDashboard },
+    { id: 'attendance', label: 'My Attendance', icon: Clock, badge: 'Live' },
+    { id: 'leaves', label: 'Apply Leave', icon: CalendarCheck },
+    { id: 'payroll', label: 'My Payslips (₹)', icon: CreditCard },
+    { id: 'settings', label: 'My Settings', icon: Settings },
+  ];
+
+  const navItems = currentRole === 'EMPLOYEE' ? employeeNavItems : adminNavItems;
+
   return (
     <aside className="w-64 bg-white border border-surface-border rounded-2xl shadow-card m-4 mr-0 p-4 flex flex-col justify-between hidden md:flex h-[calc(100vh-2rem)] sticky top-4 select-none z-20">
-      {/* Top Branding */}
+      {/* Branding */}
       <div>
         <div className="flex items-center gap-3 px-2 py-2 mb-6 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue to-accent-cyan flex items-center justify-center text-white shadow-md shadow-brand-blue/30">
@@ -55,47 +69,33 @@ export const Sidebar: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <h1 className="font-extrabold text-slate-dark text-lg tracking-tight">Dayflow</h1>
               <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand-light text-brand-blue border border-brand-subtle">
-                HRMS
+                {currentRole === 'EMPLOYEE' ? 'Portal' : 'Admin'}
               </span>
             </div>
-            <p className="text-[11px] text-slate-muted font-medium">Odoo India Edition (₹)</p>
+            <p className="text-[11px] text-slate-muted font-medium">Enterprise HR & Payroll</p>
           </div>
         </div>
 
         {/* Navigation Items */}
         <nav className="space-y-1.5">
           {navItems.map(item => {
-            if (item.adminOnly && currentRole === 'EMPLOYEE') return null;
-
             const Icon = item.icon;
             const isActive = activeTab === item.id;
 
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  if (item.id === 'copilot') {
-                    setIsCopilotOpen(true);
-                  } else {
-                    setActiveTab(item.id);
-                  }
-                }}
+                onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
                   isActive
                     ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/30 font-semibold'
-                    : item.highlight
-                    ? 'bg-accent-lavender-light/60 text-slate-dark hover:bg-accent-lavender-light hover:text-brand-blue'
                     : 'text-slate-muted hover:bg-surface-hover hover:text-slate-dark'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Icon
                     className={`w-4 h-4 transition-transform duration-200 group-hover:scale-110 ${
-                      isActive
-                        ? 'text-white'
-                        : item.highlight
-                        ? 'text-brand-blue'
-                        : 'text-slate-muted group-hover:text-brand-blue'
+                      isActive ? 'text-white' : 'text-slate-muted group-hover:text-brand-blue'
                     }`}
                   />
                   <span>{item.label}</span>
@@ -105,9 +105,7 @@ export const Sidebar: React.FC = () => {
                   {item.badge && (
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : 'bg-surface-border text-slate-muted'
+                        isActive ? 'bg-white/20 text-white' : 'bg-surface-border text-slate-muted'
                       }`}
                     >
                       {item.badge}
@@ -116,11 +114,6 @@ export const Sidebar: React.FC = () => {
                   {item.alert && (
                     <span className="w-2 h-2 rounded-full bg-accent-amber animate-pulse" />
                   )}
-                  {item.highlight && !isActive && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-light text-brand-blue">
-                      AI
-                    </span>
-                  )}
                 </div>
               </button>
             );
@@ -128,62 +121,13 @@ export const Sidebar: React.FC = () => {
         </nav>
       </div>
 
-      {/* Role Switcher & User Profile Mini-Card */}
-      <div className="space-y-3 pt-3 border-t border-surface-border">
-        {/* Quick Role Switcher Pill Container */}
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-light px-2 mb-1.5 flex items-center justify-between">
-            <span>Demo Role Switcher</span>
-            <span className="text-[9px] bg-accent-mint-light text-accent-mint font-bold px-1 rounded">
-              Active
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-1 bg-surface-bg p-1 rounded-xl border border-surface-border text-[11px]">
-            <button
-              onClick={() => setCurrentRole('ADMIN')}
-              className={`py-1 rounded-lg font-medium transition-all text-center ${
-                currentRole === 'ADMIN'
-                  ? 'bg-brand-blue text-white shadow-sm font-bold'
-                  : 'text-slate-muted hover:text-slate-dark'
-              }`}
-              title="Marcus Vance (VP HR)"
-            >
-              Admin
-            </button>
-            <button
-              onClick={() => setCurrentRole('HR_OFFICER')}
-              className={`py-1 rounded-lg font-medium transition-all text-center ${
-                currentRole === 'HR_OFFICER'
-                  ? 'bg-brand-blue text-white shadow-sm font-bold'
-                  : 'text-slate-muted hover:text-slate-dark'
-              }`}
-              title="Sarah Jenkins (HR Officer)"
-            >
-              HR Off.
-            </button>
-            <button
-              onClick={() => setCurrentRole('EMPLOYEE')}
-              className={`py-1 rounded-lg font-medium transition-all text-center ${
-                currentRole === 'EMPLOYEE'
-                  ? 'bg-brand-blue text-white shadow-sm font-bold'
-                  : 'text-slate-muted hover:text-slate-dark'
-              }`}
-              title="John Doe (Lead Engineer)"
-            >
-              Emp.
-            </button>
-          </div>
-        </div>
-
-        {/* User Mini Profile with Logout Action */}
+      {/* User Profile Mini-Card & Logout */}
+      <div className="pt-3 border-t border-surface-border">
         <div className="flex items-center justify-between p-2 rounded-xl bg-surface-bg border border-surface-border">
-          <div
-            onClick={() => setActiveTab('employees')}
-            className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
-          >
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
               <img
-                src={currentUser.avatarUrl}
+                src={currentUser.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                 alt={currentUser.name}
                 className="w-9 h-9 rounded-xl object-cover border border-white shadow-sm"
               />
@@ -207,3 +151,5 @@ export const Sidebar: React.FC = () => {
     </aside>
   );
 };
+
+export default Sidebar;

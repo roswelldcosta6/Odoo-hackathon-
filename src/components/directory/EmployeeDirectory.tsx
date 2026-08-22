@@ -6,17 +6,10 @@ import {
   Search,
   Plus,
   Mail,
-  Phone,
   MapPin,
   Eye,
   FileText,
-  ChevronRight,
-  Shield,
-  Briefcase,
-  Upload,
   Camera,
-  Copy,
-  CheckCircle2,
   AlertCircle,
   X
 } from 'lucide-react';
@@ -34,7 +27,8 @@ export const EmployeeDirectory: React.FC = () => {
     setIsPayslipModalOpen,
     payslips,
     addEmployee,
-    currentRole
+    currentRole,
+    currentUser
   } = useHRMS();
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -43,6 +37,8 @@ export const EmployeeDirectory: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const canManageEmployees = currentRole === 'ADMIN' || currentRole === 'HR_OFFICER';
 
   // New employee form state
   const [newEmpData, setNewEmpData] = useState({
@@ -76,6 +72,8 @@ export const EmployeeDirectory: React.FC = () => {
   };
 
   const handleOpenPayslip = (emp: Employee) => {
+    // Only allow if admin/HR or if viewing own payslip
+    if (!canManageEmployees && emp.id !== currentUser.employeeId) return;
     const slip = payslips.find(s => s.employeeId === emp.id) || payslips[0];
     setSelectedPayslip(slip);
     setIsPayslipModalOpen(true);
@@ -105,7 +103,7 @@ export const EmployeeDirectory: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!newEmpData.firstName || !newEmpData.lastName || !newEmpData.email) {
+    if (!newEmpData.firstName.trim() || !newEmpData.lastName.trim() || !newEmpData.email.trim()) {
       setFormError('First Name, Last Name, and Corporate Email are required.');
       return;
     }
@@ -131,9 +129,9 @@ export const EmployeeDirectory: React.FC = () => {
     addEmployee({
       employeeCode: empCode,
       loginId: autoLoginId,
-      firstName: newEmpData.firstName,
-      lastName: newEmpData.lastName,
-      email: newEmpData.email,
+      firstName: newEmpData.firstName.trim(),
+      lastName: newEmpData.lastName.trim(),
+      email: newEmpData.email.trim(),
       personalEmail: `${newEmpData.firstName.toLowerCase()}@gmail.com`,
       phone: newEmpData.phone || '9876543210',
       whatsapp: newEmpData.phone || '9876543210',
@@ -213,7 +211,9 @@ export const EmployeeDirectory: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-muted mt-0.5">
-            Manage organization staff, view profiles, and inspect Indian payroll details.
+            {canManageEmployees
+              ? 'Manage organization staff, view profiles, and inspect payroll structures.'
+              : 'Browse organization staff and departmental contact information.'}
           </p>
         </div>
 
@@ -248,7 +248,7 @@ export const EmployeeDirectory: React.FC = () => {
             />
           </div>
 
-          {(currentRole === 'ADMIN' || currentRole === 'HR_OFFICER') && (
+          {canManageEmployees && (
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="px-4 py-2 rounded-xl bg-brand-blue hover:bg-brand-hover text-white font-bold text-xs shadow-md shadow-brand-blue/20 flex items-center gap-1.5 transition-all"
@@ -280,80 +280,89 @@ export const EmployeeDirectory: React.FC = () => {
       {/* Grid View */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredEmployees.map(emp => (
-            <div
-              key={emp.id}
-              className="bg-white border border-surface-border rounded-2xl p-5 shadow-card hover:shadow-md hover:border-brand-blue/50 transition-all flex flex-col justify-between group"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-brand-light text-brand-blue">
-                    {emp.loginId || emp.employeeCode}
-                  </span>
-                  <span
-                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
-                      emp.employmentStatus === 'ACTIVE'
-                        ? 'bg-accent-mint-light text-accent-mint'
-                        : emp.employmentStatus === 'PROBATION'
-                        ? 'bg-accent-amber-light text-accent-amber'
-                        : 'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    {emp.employmentStatus}
-                  </span>
-                </div>
+          {filteredEmployees.map(emp => {
+            const isOwnProfile = emp.id === currentUser.employeeId;
+            const canViewSalary = canManageEmployees || isOwnProfile;
 
-                <div className="flex items-center gap-3.5 mb-4">
-                  <img
-                    src={emp.avatarUrl}
-                    alt={emp.firstName}
-                    className="w-13 h-13 rounded-2xl object-cover border border-surface-border group-hover:scale-105 transition-transform"
-                  />
-                  <div>
-                    <h3 className="font-extrabold text-slate-dark text-sm group-hover:text-brand-blue transition-colors">
-                      {emp.firstName} {emp.lastName}
-                    </h3>
-                    <p className="text-xs text-slate-muted font-medium">{emp.designation}</p>
-                    <span className="text-[10px] font-bold text-brand-blue uppercase">{emp.department}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-3 border-t border-surface-border/soft text-xs text-slate-dark">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-3.5 h-3.5 text-slate-light" />
-                    <span className="truncate">{emp.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-slate-light" />
-                    <span className="truncate">{emp.location}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] text-slate-muted">Monthly Salary:</span>
-                    <span className="font-extrabold text-slate-dark font-mono">
-                      ₹{emp.salary?.grossSalary?.toLocaleString('en-IN') || '65,000'}
+            return (
+              <div
+                key={emp.id}
+                className="bg-white border border-surface-border rounded-2xl p-5 shadow-card hover:shadow-md hover:border-brand-blue/50 transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-brand-light text-brand-blue">
+                      {emp.loginId || emp.employeeCode}
+                    </span>
+                    <span
+                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
+                        emp.employmentStatus === 'ACTIVE'
+                          ? 'bg-accent-mint-light text-accent-mint'
+                          : emp.employmentStatus === 'PROBATION'
+                          ? 'bg-accent-amber-light text-accent-amber'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {emp.employmentStatus}
                     </span>
                   </div>
+
+                  <div className="flex items-center gap-3.5 mb-4">
+                    <img
+                      src={emp.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150'}
+                      alt={emp.firstName}
+                      className="w-13 h-13 rounded-2xl object-cover border border-surface-border group-hover:scale-105 transition-transform"
+                    />
+                    <div>
+                      <h3 className="font-extrabold text-slate-dark text-sm group-hover:text-brand-blue transition-colors">
+                        {emp.firstName} {emp.lastName}
+                      </h3>
+                      <p className="text-xs text-slate-muted font-medium">{emp.designation}</p>
+                      <span className="text-[10px] font-bold text-brand-blue uppercase">{emp.department}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-3 border-t border-surface-border/soft text-xs text-slate-dark">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-light" />
+                      <span className="truncate">{emp.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-slate-light" />
+                      <span className="truncate">{emp.location}</span>
+                    </div>
+                    {canViewSalary && (
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-slate-muted">Monthly Salary:</span>
+                        <span className="font-extrabold text-slate-dark font-mono">
+                          ₹{emp.salary?.grossSalary?.toLocaleString('en-IN') || '65,000'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-surface-border">
+                  <button
+                    onClick={() => handleOpenProfile(emp)}
+                    className="flex-1 py-2 rounded-xl bg-surface-bg hover:bg-brand-light text-slate-dark hover:text-brand-blue font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Profile</span>
+                  </button>
+                  {canViewSalary && (
+                    <button
+                      onClick={() => handleOpenPayslip(emp)}
+                      className="p-2 rounded-xl bg-surface-bg hover:bg-brand-light text-slate-dark hover:text-brand-blue transition-all"
+                      title="View Indian Payslip"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-surface-border">
-                <button
-                  onClick={() => handleOpenProfile(emp)}
-                  className="flex-1 py-2 rounded-xl bg-surface-bg hover:bg-brand-light text-slate-dark hover:text-brand-blue font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Profile</span>
-                </button>
-                <button
-                  onClick={() => handleOpenPayslip(emp)}
-                  className="p-2 rounded-xl bg-surface-bg hover:bg-brand-light text-slate-dark hover:text-brand-blue transition-all"
-                  title="View Indian Payslip"
-                >
-                  <FileText className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white border border-surface-border rounded-2xl shadow-card overflow-x-auto">
@@ -365,7 +374,7 @@ export const EmployeeDirectory: React.FC = () => {
                 <th className="p-4">Department</th>
                 <th className="p-4">Location</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Gross (₹)</th>
+                {canManageEmployees && <th className="p-4">Gross (₹)</th>}
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -374,7 +383,7 @@ export const EmployeeDirectory: React.FC = () => {
                 <tr key={emp.id} className="hover:bg-surface-bg/50 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <img src={emp.avatarUrl} alt={emp.firstName} className="w-9 h-9 rounded-xl object-cover" />
+                      <img src={emp.avatarUrl || 'https://images.unsplash.com/photo-1534528741775?w=150'} alt={emp.firstName} className="w-9 h-9 rounded-xl object-cover" />
                       <div>
                         <div className="font-extrabold text-slate-dark">{emp.firstName} {emp.lastName}</div>
                         <div className="text-[10px] text-slate-muted">{emp.designation}</div>
@@ -389,7 +398,9 @@ export const EmployeeDirectory: React.FC = () => {
                   <td className="p-4">
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${emp.employmentStatus === 'ACTIVE' ? 'bg-accent-mint-light text-accent-mint' : 'bg-accent-amber-light text-accent-amber'}`}>{emp.employmentStatus}</span>
                   </td>
-                  <td className="p-4 font-mono font-bold text-slate-dark">₹{emp.salary?.grossSalary?.toLocaleString('en-IN') || '65,000'}</td>
+                  {canManageEmployees && (
+                    <td className="p-4 font-mono font-bold text-slate-dark">₹{emp.salary?.grossSalary?.toLocaleString('en-IN') || '65,000'}</td>
+                  )}
                   <td className="p-4 text-right">
                     <button onClick={() => handleOpenProfile(emp)} className="px-3 py-1 rounded-lg text-brand-blue bg-brand-light hover:bg-brand-blue hover:text-white font-bold transition-all">Profile</button>
                   </td>

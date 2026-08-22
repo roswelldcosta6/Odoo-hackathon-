@@ -1,8 +1,7 @@
-﻿import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import confetti from 'canvas-confetti';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
-  UserRole,
   User,
+  UserRole,
   Employee,
   AttendanceRecord,
   LeaveRequest,
@@ -19,16 +18,16 @@ import {
   initialPayslips,
   initialAuditLogs,
   initialNotifications,
-  generateEmployeeLoginId,
-  calcIndianPayroll
+  calcIndianPayroll,
+  generateEmployeeLoginId
 } from '../data/mockData';
-import api from '../services/api';
+import { api } from '../services/api';
 
 interface HRMSContextType {
-  // Auth & Backend connectivity
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
   currentUser: User;
+  setCurrentUser: (user: User) => void;
   isAuthenticated: boolean;
   isBackendLive: boolean;
   authError: string | null;
@@ -36,319 +35,139 @@ interface HRMSContextType {
   setIsLoginModalOpen: (open: boolean) => void;
   loginWithCredentials: (loginIdOrEmail: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  
-  // Employees
   employees: Employee[];
   selectedEmployee: Employee | null;
   setSelectedEmployee: (emp: Employee | null) => void;
   isEmployeeModalOpen: boolean;
   setIsEmployeeModalOpen: (open: boolean) => void;
-  addEmployee: (emp: Omit<Employee, 'id'>) => Promise<void>;
-  updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
-  deleteEmployee: (id: string) => Promise<void>;
-  
-  // Attendance & Punch Clock
+  addEmployee: (emp: Omit<Employee, 'id'>) => void;
+  updateEmployee: (id: string, data: Partial<Employee>) => void;
+  deleteEmployee: (id: string) => void;
   attendanceRecords: AttendanceRecord[];
   isClockedIn: boolean;
   isBreakActive: boolean;
-  punchInTime: string;
+  punchInTime: string | null;
   secondsWorkedToday: number;
   punchNetworkType: 'OFFICE_WIFI' | 'REMOTE_IP';
-  setPunchNetworkType: (type: 'OFFICE_WIFI' | 'REMOTE_IP') => void;
+  setPunchNetworkType: (net: 'OFFICE_WIFI' | 'REMOTE_IP') => void;
   streakDays: number;
-  togglePunchClock: () => Promise<void>;
+  togglePunchClock: () => void;
   toggleBreak: () => void;
-  overrideAttendance: (recordId: string, newCheckIn: string, reason: string) => Promise<void>;
-
-  // Leave Management
+  overrideAttendance: (id: string, timeOrStatus: any, reason?: string) => void;
   leaveRequests: LeaveRequest[];
   userLeaveBalance: LeaveBalance;
-  applyLeave: (leave: {
-    leaveType: LeaveRequest['leaveType'];
-    startDate: string;
-    endDate: string;
-    reason: string;
-    totalDays: number;
-  }) => Promise<{ success: boolean; hasCollision: boolean; collisionMessage?: string }>;
-  reviewLeaveRequest: (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => Promise<void>;
-
-  // Payroll
+  applyLeave: (leave: { startDate: string; endDate: string; totalDays: number; leaveType: LeaveRequest['leaveType']; reason: string }) => Promise<{ success: boolean; hasCollision: boolean; collisionMessage: string | null }>;
+  reviewLeaveRequest: (id: string, status: 'APPROVED' | 'REJECTED', comment?: string) => Promise<void>;
   payslips: Payslip[];
   selectedPayslip: Payslip | null;
   setSelectedPayslip: (slip: Payslip | null) => void;
   isPayslipModalOpen: boolean;
   setIsPayslipModalOpen: (open: boolean) => void;
   processPayrollBatch: (month: string) => void;
-
-  // Live Backend Analytics State
-  liveAnalytics: {
-    metrics?: {
-      totalEmployees: number;
-      presentToday: number;
-      presentRate: number;
-      onLeave: number;
-      averageSalary: number;
-    };
-    attendanceSalaryByUnit?: any[];
-    departmentAnalysis?: any[];
-    employeeStructure?: any[];
-  } | null;
-
-  // Audit Logs
+  liveAnalytics: any;
   auditLogs: AuditLogItem[];
-  addAuditLog: (
-    action: string,
-    module: AuditLogItem['module'],
-    description: string,
-    diff?: AuditLogItem['diff']
-  ) => void;
-
-  // Notifications
+  addAuditLog: (action: string, module: AuditLogItem['module'], description: string, diff?: AuditLogItem['diff']) => void;
   notifications: AppNotification[];
   unreadNotifsCount: number;
   isNotificationOpen: boolean;
   setIsNotificationOpen: (open: boolean) => void;
   markNotificationAsRead: (id: string) => void;
   markAllNotificationsAsRead: () => void;
-
-  // AI Copilot
   isCopilotOpen: boolean;
   setIsCopilotOpen: (open: boolean) => void;
-
-  // Global Search
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery: (q: string) => void;
 }
 
 const HRMSContext = createContext<HRMSContextType | undefined>(undefined);
 
-export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('ADMIN');
-  const [currentUser, setCurrentUser] = useState<User>(mockUsers.ADMIN);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [isBackendLive, setIsBackendLive] = useState(false);
+const getStored = <T,>(key: string, fallback: T): T => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const HRMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<User>(() => getStored('df_user', mockUsers.ADMIN));
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => getStored('df_role', 'ADMIN'));
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => getStored('df_auth', false));
+  const [isBackendLive, setIsBackendLive] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [liveAnalytics, setLiveAnalytics] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  // Persistent Collections
+  const [employees, setEmployees] = useState<Employee[]>(() => getStored('df_employees', initialEmployees));
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
-  // Attendance
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
-  const [isClockedIn, setIsClockedIn] = useState(true);
-  const [isBreakActive, setIsBreakActive] = useState(false);
-  const [punchInTime, setPunchInTime] = useState('09:14 AM');
-  const [secondsWorkedToday, setSecondsWorkedToday] = useState(6 * 3600 + 45 * 60 + 20);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => getStored('df_attendance', initialAttendanceRecords));
+  const [isClockedIn, setIsClockedIn] = useState<boolean>(() => getStored('df_clocked_in', false));
+  const [isBreakActive, setIsBreakActive] = useState<boolean>(() => getStored('df_break', false));
+  const [punchInTime, setPunchInTime] = useState<string | null>(() => getStored('df_punch_time', null));
+  const [secondsWorkedToday, setSecondsWorkedToday] = useState<number>(() => getStored('df_worked_secs', 16200));
   const [punchNetworkType, setPunchNetworkType] = useState<'OFFICE_WIFI' | 'REMOTE_IP'>('OFFICE_WIFI');
-  const [streakDays, setStreakDays] = useState(5);
+  const [streakDays, setStreakDays] = useState<number>(() => getStored('df_streak', 14));
 
-  // Leaves
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(initialLeaveRequests);
-  const [userLeaveBalance, setUserLeaveBalance] = useState<LeaveBalance>({
-    paidAnnual: { total: 20, used: 6, remaining: 14 },
-    sickLeave: { total: 10, used: 3, remaining: 7 },
-    casualLeave: { total: 6, used: 2, remaining: 4 },
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(() => getStored('df_leaves', initialLeaveRequests));
+  const [userLeaveBalance, setUserLeaveBalance] = useState<LeaveBalance>(() => getStored('df_leave_bal', {
+    paidAnnual: { total: 21, used: 6, remaining: 15 },
+    sickLeave: { total: 12, used: 3, remaining: 9 },
+    casualLeave: { total: 7, used: 2, remaining: 5 },
     unpaidLop: { used: 0 }
-  });
+  }));
 
-  // Payroll
-  const [payslips, setPayslips] = useState<Payslip[]>(initialPayslips);
+  const [payslips, setPayslips] = useState<Payslip[]>(() => getStored('df_payslips', initialPayslips));
   const [selectedPayslip, setSelectedPayslip] = useState<Payslip | null>(null);
   const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
 
-  // Live backend analytics
-  const [liveAnalytics, setLiveAnalytics] = useState<any | null>(null);
-
-  // Audit Logs
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(initialAuditLogs);
-
-  // Notifications
-  const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(() => getStored('df_audit', initialAuditLogs));
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored('df_notifs', initialNotifications));
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-
-  // AI Copilot
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
-  // Search
-  const [searchQuery, setSearchQuery] = useState('');
+  // Sync state to localStorage
+  useEffect(() => { localStorage.setItem('df_user', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('df_role', JSON.stringify(currentRole)); }, [currentRole]);
+  useEffect(() => { localStorage.setItem('df_auth', JSON.stringify(isAuthenticated)); }, [isAuthenticated]);
+  useEffect(() => { localStorage.setItem('df_employees', JSON.stringify(employees)); }, [employees]);
+  useEffect(() => { localStorage.setItem('df_attendance', JSON.stringify(attendanceRecords)); }, [attendanceRecords]);
+  useEffect(() => { localStorage.setItem('df_leaves', JSON.stringify(leaveRequests)); }, [leaveRequests]);
+  useEffect(() => { localStorage.setItem('df_payslips', JSON.stringify(payslips)); }, [payslips]);
+  useEffect(() => { localStorage.setItem('df_audit', JSON.stringify(auditLogs)); }, [auditLogs]);
+  useEffect(() => { localStorage.setItem('df_notifs', JSON.stringify(notifications)); }, [notifications]);
+  useEffect(() => { localStorage.setItem('df_clocked_in', JSON.stringify(isClockedIn)); }, [isClockedIn]);
+  useEffect(() => { localStorage.setItem('df_break', JSON.stringify(isBreakActive)); }, [isBreakActive]);
+  useEffect(() => { localStorage.setItem('df_punch_time', JSON.stringify(punchInTime)); }, [punchInTime]);
+  useEffect(() => { localStorage.setItem('df_worked_secs', JSON.stringify(secondsWorkedToday)); }, [secondsWorkedToday]);
 
-  // 1. Check Backend Health on load
-  const checkAndHydrateBackend = async () => {
-    const online = await api.checkHealth();
-    setIsBackendLive(online);
-
-    if (online) {
-      const analyticsRes = await api.analytics.getDashboard();
-      if (analyticsRes.success && analyticsRes.data) {
-        setLiveAnalytics(analyticsRes.data);
-      }
-
-      const empRes = await api.employees.getAll();
-      const rawEmps = Array.isArray(empRes.data) ? empRes.data : (empRes.data as any)?.items;
-      if (empRes.success && Array.isArray(rawEmps) && rawEmps.length > 0) {
-        const mappedEmps: Employee[] = rawEmps.map((e: any, idx: number) => ({
-          id: e.id,
-          employeeCode: e.employeeCode || `DF-${(idx + 1).toString().padStart(3, '0')}`,
-          loginId: e.loginId || generateEmployeeLoginId(e.firstName, e.lastName, e.joiningDate || '2026-01-01', idx + 1, 'DF'),
-          firstName: e.firstName,
-          lastName: e.lastName,
-          email: e.personalEmail || e.user?.email || `${e.firstName.toLowerCase()}.${e.lastName.toLowerCase()}@dayflow.com`,
-          personalEmail: e.personalEmail || `${e.firstName.toLowerCase()}@gmail.com`,
-          phone: e.phone || '9876543210',
-          whatsapp: e.phone || '9876543210',
-          address: e.address || 'Mumbai, Maharashtra',
-          currentAddress: e.address || 'Mumbai, Maharashtra',
-          permanentAddress: e.address || 'Mumbai, Maharashtra',
-          designation: e.designation || 'Staff Associate',
-          department: e.department?.name || 'Engineering',
-          joiningDate: e.joiningDate ? e.joiningDate.split('T')[0] : '2024-01-15',
-          employmentStatus: e.status || 'ACTIVE',
-          employmentType: 'Full-Time',
-          avatarUrl: e.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-          reportingManager: 'Marcus Vance (VP HR)',
-          location: 'Mumbai HQ',
-          attendanceRate: 98.4,
-          performanceRating: e.performanceRating || 'GOOD',
-          dateOfBirth: '1992-06-15',
-          gender: 'Male',
-          bloodGroup: 'O+',
-          nationality: 'Indian',
-          aadhaar: 'XXXX XXXX 1234',
-          pan: 'ABCDE1234F',
-          emergencyContactName: 'Family Member',
-          emergencyContactRelation: 'Spouse',
-          emergencyContactPhone: '9876543210',
-          bankName: 'HDFC Bank',
-          bankAccountNo: '50200012345678',
-          ifscCode: 'HDFC0001234',
-          uanNumber: '100123456789',
-          contractRenewalDate: '2027-03-31',
-          salary: calcIndianPayroll(e.payrollStructure?.basicSalary || 65000),
-          documents: [
-            { id: 'doc-1', name: 'Employment_Agreement.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '2.1 MB', status: 'VERIFIED' },
-            { id: 'doc-2', name: 'PAN_Card.pdf', type: 'PDF', uploadDate: '2024-01-15', size: '512 KB', status: 'VERIFIED' }
-          ]
-        }));
-
-        setEmployees(mappedEmps);
-      }
-    }
-  };
-
+  // Check backend connectivity on mount
   useEffect(() => {
-    checkAndHydrateBackend();
-    const interval = setInterval(() => {
-      api.checkHealth().then(setIsBackendLive);
-    }, 15000);
-    return () => clearInterval(interval);
+    const checkApi = async () => {
+      try {
+        const isHealthy = await api.checkHealth();
+        if (isHealthy) {
+          setIsBackendLive(true);
+          const analyticsRes = await api.analytics.getDashboard();
+          if (analyticsRes && analyticsRes.data) setLiveAnalytics(analyticsRes.data);
+        }
+      } catch {
+        setIsBackendLive(false);
+      }
+    };
+    checkApi();
   }, []);
 
-  // Login with Credentials (accepts either Login ID e.g. DFMAVA20210001 or Email)
-  const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    setAuthError(null);
-    const idClean = loginIdOrEmail.trim();
-
-    // Map Login ID to test accounts if needed
-    let emailToTry = idClean;
-    if (idClean.startsWith('DFMAVA') || idClean.startsWith('OIMAVA') || idClean.toLowerCase().includes('admin')) {
-      emailToTry = 'admin@dayflow.com';
-    } else if (idClean.startsWith('DFSAJE') || idClean.startsWith('OISAJE') || idClean.toLowerCase().includes('hr')) {
-      emailToTry = 'hr@dayflow.com';
-    } else if (idClean.startsWith('DFJODO') || idClean.startsWith('OIJODO') || idClean.toLowerCase().includes('employee')) {
-      emailToTry = 'employee@dayflow.com';
-    }
-
-    if (isBackendLive) {
-      const res = await api.auth.login({ email: emailToTry, password: pass });
-      if (res.success && res.data) {
-        api.setToken(res.data.token);
-        const u = res.data.user;
-        const roleKey = (u.role === 'ADMIN' ? 'ADMIN' : u.role === 'HR_OFFICER' ? 'HR_OFFICER' : 'EMPLOYEE') as UserRole;
-        setCurrentRoleState(roleKey);
-        setCurrentUser({
-          id: u.id,
-          email: u.email,
-          role: roleKey,
-          employeeId: u.employee?.id || 'emp-1',
-          name: `${u.employee?.firstName || 'User'} ${u.employee?.lastName || ''}`.trim() || u.email.split('@')[0],
-          avatarUrl: u.employee?.avatarUrl || mockUsers[roleKey].avatarUrl,
-          designation: u.employee?.designation || mockUsers[roleKey].designation,
-          loginId: mockUsers[roleKey].loginId
-        });
-        setIsAuthenticated(true);
-        setIsLoginModalOpen(false);
-        addAuditLog('AUTH_LOGIN_LIVE', 'SECURITY', `Authenticated via Backend API as ${u.email}`);
-        return { success: true };
-      }
-    }
-
-    // Local / Demo Authenticator fallback
-    if (emailToTry === 'admin@dayflow.com' || idClean.includes('ADMIN') || idClean.startsWith('DFMAVA')) {
-      setCurrentRoleState('ADMIN');
-      setCurrentUser(mockUsers.ADMIN);
-      setIsAuthenticated(true);
-      setIsLoginModalOpen(false);
-      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as Administrator (Marcus Vance)');
-      return { success: true };
-    } else if (emailToTry === 'hr@dayflow.com' || idClean.includes('HR') || idClean.startsWith('DFSAJE')) {
-      setCurrentRoleState('HR_OFFICER');
-      setCurrentUser(mockUsers.HR_OFFICER);
-      setIsAuthenticated(true);
-      setIsLoginModalOpen(false);
-      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as HR Officer (Sarah Jenkins)');
-      return { success: true };
-    } else if (emailToTry === 'employee@dayflow.com' || idClean.startsWith('DFJODO') || idClean.includes('EMPLOYEE')) {
-      setCurrentRoleState('EMPLOYEE');
-      setCurrentUser(mockUsers.EMPLOYEE);
-      setIsAuthenticated(true);
-      setIsLoginModalOpen(false);
-      addAuditLog('AUTH_LOGIN_DEMO', 'SECURITY', 'Authenticated as Employee (John Doe)');
-      return { success: true };
-    }
-
-    // Custom email / password test
-    if (pass.length >= 6) {
-      setCurrentRoleState('ADMIN');
-      setCurrentUser({
-        id: 'usr-custom',
-        email: idClean,
-        role: 'ADMIN',
-        employeeId: 'emp-1',
-        name: idClean.split('@')[0],
-        avatarUrl: mockUsers.ADMIN.avatarUrl,
-        designation: 'Workspace Administrator',
-        loginId: 'DFADMI20260001'
-      });
-      setIsAuthenticated(true);
-      setIsLoginModalOpen(false);
-      return { success: true };
-    }
-
-    setAuthError('Invalid credentials. Password must be at least 6 characters.');
-    return { success: false, error: 'Invalid credentials. Please use Password@123 or select a 1-click Demo Account.' };
-  };
-
-  const logout = () => {
-    api.setToken(null);
-    setIsAuthenticated(false);
-    addAuditLog('AUTH_LOGOUT', 'SECURITY', `Session signed out for ${currentUser.name}`);
-  };
-
-  const setCurrentRole = (role: UserRole) => {
-    setCurrentRoleState(role);
-    setCurrentUser(mockUsers[role]);
-    addAuditLog('ROLE_SWITCH', 'SECURITY', `Active perspective switched to ${role}`);
-  };
-
-  // Real-time Punch Clock ticker
+  // Timer loop for clocked in time
   useEffect(() => {
-    let interval: any;
+    let interval: any = null;
     if (isClockedIn && !isBreakActive) {
       interval = setInterval(() => {
         setSecondsWorkedToday(prev => prev + 1);
@@ -356,399 +175,6 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     return () => clearInterval(interval);
   }, [isClockedIn, isBreakActive]);
-
-  const triggerConfetti = () => {
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#007BFF', '#00D2D3', '#2ED573', '#FF9F43', '#A4B0F5']
-      });
-    } catch {}
-  };
-
-  // Punch Clock toggle
-  const togglePunchClock = async () => {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    if (isBackendLive) {
-      await api.attendance.punch({
-        networkType: punchNetworkType,
-        remarks: isClockedIn ? 'Punch Out via Web App' : 'Punch In via Web App'
-      });
-    }
-
-    if (isClockedIn) {
-      setIsClockedIn(false);
-      setIsBreakActive(false);
-      
-      setAttendanceRecords(prev =>
-        prev.map(rec =>
-          rec.employeeId === currentUser.employeeId
-            ? {
-                ...rec,
-                checkOut: timeString,
-                totalHours: +(secondsWorkedToday / 3600).toFixed(1),
-                status: secondsWorkedToday >= 8 * 3600 ? 'PRESENT' : 'HALF_DAY'
-              }
-            : rec
-        )
-      );
-
-      addAuditLog(
-        'PUNCH_OUT',
-        'ATTENDANCE',
-        `${currentUser.name} punched OUT at ${timeString}. Total ${(secondsWorkedToday / 3600).toFixed(1)} hrs logged.`
-      );
-    } else {
-      setIsClockedIn(true);
-      setPunchInTime(timeString);
-      setStreakDays(prev => prev + 1);
-      triggerConfetti();
-
-      const isLateCheck = now.getHours() >= 9 && now.getMinutes() > 30;
-      const newRec: AttendanceRecord = {
-        id: `att-${Date.now()}`,
-        employeeId: currentUser.employeeId,
-        employeeName: currentUser.name,
-        employeeAvatar: currentUser.avatarUrl,
-        department: 'Engineering',
-        designation: currentUser.designation,
-        date: now.toISOString().split('T')[0],
-        checkIn: timeString,
-        totalHours: 0.1,
-        status: 'PRESENT',
-        isLate: isLateCheck,
-        networkType: punchNetworkType,
-        ipAddress: punchNetworkType === 'OFFICE_WIFI' ? '192.168.1.104 (HQ-Floor-5)' : '103.56.77.14 (Remote WFH)',
-        remarks: isLateCheck ? 'Late check-in auto-flagged' : 'On-time check-in'
-      };
-
-      setAttendanceRecords(prev => [newRec, ...prev.filter(r => r.employeeId !== currentUser.employeeId)]);
-
-      addAuditLog(
-        'PUNCH_IN',
-        'ATTENDANCE',
-        `${currentUser.name} punched IN at ${timeString} via ${punchNetworkType === 'OFFICE_WIFI' ? 'Office Wi-Fi (HQ)' : 'Remote Network'}.`
-      );
-    }
-  };
-
-  const toggleBreak = () => {
-    setIsBreakActive(prev => {
-      const next = !prev;
-      addAuditLog(
-        next ? 'BREAK_START' : 'BREAK_END',
-        'ATTENDANCE',
-        `${currentUser.name} ${next ? 'started break' : 'resumed work from break'}.`
-      );
-      return next;
-    });
-  };
-
-  const overrideAttendance = async (recordId: string, newCheckIn: string, reason: string) => {
-    if (isBackendLive) {
-      await api.attendance.override(recordId, { checkIn: newCheckIn, remarks: reason });
-    }
-
-    setAttendanceRecords(prev =>
-      prev.map(r => {
-        if (r.id === recordId) {
-          const oldTime = r.checkIn;
-          addAuditLog(
-            'ATTENDANCE_OVERRIDE',
-            'ATTENDANCE',
-            `Adjusted check-in time for ${r.employeeName}: "${reason}"`,
-            { field: 'checkIn', oldValue: oldTime, newValue: newCheckIn }
-          );
-          return { ...r, checkIn: newCheckIn, remarks: `Override: ${reason}` };
-        }
-        return r;
-      })
-    );
-  };
-
-  // Add Employee with strictly formatted Login ID & full Indian defaults
-  const addEmployee = async (empData: Omit<Employee, 'id'>) => {
-    const newId = `emp-${Date.now()}`;
-    const serialNum = employees.length + 1;
-    const autoLoginId = empData.loginId || generateEmployeeLoginId(empData.firstName, empData.lastName, empData.joiningDate, serialNum, 'DF');
-
-    if (isBackendLive) {
-      await api.employees.create({
-        email: empData.email,
-        employeeCode: empData.employeeCode,
-        firstName: empData.firstName,
-        lastName: empData.lastName,
-        designation: empData.designation,
-        phone: empData.phone,
-        address: empData.address,
-        basicSalary: empData.salary?.basic || 65000
-      });
-    }
-
-    const newEmp: Employee = {
-      ...empData,
-      id: newId,
-      loginId: autoLoginId,
-      phone: empData.phone || '9876543210',
-      whatsapp: empData.whatsapp || empData.phone || '9876543210',
-      personalEmail: empData.personalEmail || `${empData.firstName.toLowerCase()}@gmail.com`,
-      address: empData.address || 'Mumbai, Maharashtra',
-      currentAddress: empData.currentAddress || empData.address || 'Mumbai, Maharashtra',
-      permanentAddress: empData.permanentAddress || empData.address || 'Mumbai, Maharashtra',
-      dateOfBirth: empData.dateOfBirth || '1995-04-20',
-      gender: empData.gender || 'Male',
-      bloodGroup: empData.bloodGroup || 'O+',
-      nationality: empData.nationality || 'Indian',
-      aadhaar: empData.aadhaar || 'XXXX XXXX 1234',
-      pan: empData.pan || 'ABCDE1234F',
-      emergencyContactName: empData.emergencyContactName || 'Family Member',
-      emergencyContactRelation: empData.emergencyContactRelation || 'Parent',
-      emergencyContactPhone: empData.emergencyContactPhone || empData.phone || '9876543210',
-      bankName: empData.bankName || 'HDFC Bank',
-      bankAccountNo: empData.bankAccountNo || '50200012345678',
-      ifscCode: empData.ifscCode || 'HDFC0001234',
-      uanNumber: empData.uanNumber || '100123456789',
-      contractRenewalDate: empData.contractRenewalDate || '2027-03-31',
-      avatarUrl: empData.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      salary: empData.salary || calcIndianPayroll(65000),
-      documents: empData.documents && empData.documents.length > 0 ? empData.documents : [
-        {
-          id: `doc-${Date.now()}`,
-          name: 'Offer_Letter_Signed.pdf',
-          type: 'PDF',
-          uploadDate: new Date().toISOString().split('T')[0],
-          size: '1.2 MB',
-          status: 'VERIFIED'
-        },
-        {
-          id: `doc-pan-${Date.now()}`,
-          name: 'PAN_Card_Copy.pdf',
-          type: 'PDF',
-          uploadDate: new Date().toISOString().split('T')[0],
-          size: '480 KB',
-          status: 'VERIFIED'
-        }
-      ]
-    };
-
-    setEmployees(prev => [newEmp, ...prev]);
-    addAuditLog(
-      'EMPLOYEE_PROVISIONED',
-      'EMPLOYEE',
-      `Provisioned staff profile for ${newEmp.firstName} ${newEmp.lastName} (${newEmp.department}). Login ID: ${newEmp.loginId}`
-    );
-  };
-
-  // Update Employee
-  const updateEmployee = async (id: string, updates: Partial<Employee>) => {
-    if (isBackendLive) {
-      await api.employees.update(id, updates);
-    }
-
-    setEmployees(prev =>
-      prev.map(emp => {
-        if (emp.id === id) {
-          const updated = { ...emp, ...updates };
-          if (selectedEmployee?.id === id) {
-            setSelectedEmployee(updated);
-          }
-          addAuditLog(
-            'PROFILE_UPDATED',
-            'EMPLOYEE',
-            `Updated profile for ${updated.firstName} ${updated.lastName}`
-          );
-          return updated;
-        }
-        return emp;
-      })
-    );
-  };
-
-  // Delete / Remove Employee
-  const deleteEmployee = async (id: string) => {
-    const targetEmp = employees.find(e => e.id === id);
-    setEmployees(prev => prev.filter(emp => emp.id !== id));
-    if (selectedEmployee?.id === id) {
-      setSelectedEmployee(null);
-    }
-    addAuditLog(
-      'EMPLOYEE_REMOVED',
-      'EMPLOYEE',
-      `Permanently removed ${targetEmp ? targetEmp.firstName + ' ' + targetEmp.lastName : id} from organization directory`
-    );
-  };
-
-  // Apply Leave
-  const applyLeave = async (leave: {
-    leaveType: LeaveRequest['leaveType'];
-    startDate: string;
-    endDate: string;
-    reason: string;
-    totalDays: number;
-  }) => {
-    const userEmp = employees.find(e => e.id === currentUser.employeeId) || employees[2];
-    const dept = userEmp.department;
-    
-    const deptOverlaps = leaveRequests.filter(
-      req =>
-        req.department === dept &&
-        req.status !== 'REJECTED' &&
-        req.employeeId !== currentUser.employeeId &&
-        ((leave.startDate >= req.startDate && leave.startDate <= req.endDate) ||
-          (leave.endDate >= req.startDate && leave.endDate <= req.endDate))
-    );
-
-    const isHighCollision = deptOverlaps.length > 0;
-    let collisionMessage = '';
-
-    if (deptOverlaps.length > 0) {
-      const names = deptOverlaps.map(d => d.employeeName).join(', ');
-      collisionMessage = `⚠️ Capacity Alert: ${names} (${dept}) is already scheduled off during this window.`;
-    }
-
-    if (isBackendLive) {
-      await api.leaves.apply({
-        startDate: leave.startDate,
-        endDate: leave.endDate,
-        reason: leave.reason,
-        totalDays: leave.totalDays
-      });
-    }
-
-    const newRequest: LeaveRequest = {
-      id: `leave-${Date.now()}`,
-      employeeId: currentUser.employeeId,
-      employeeName: currentUser.name,
-      employeeAvatar: currentUser.avatarUrl,
-      department: dept,
-      designation: currentUser.designation,
-      leaveType: leave.leaveType,
-      startDate: leave.startDate,
-      endDate: leave.endDate,
-      totalDays: leave.totalDays,
-      reason: leave.reason,
-      status: 'PENDING',
-      appliedDate: new Date().toISOString().split('T')[0],
-      hasCollisionWarning: isHighCollision,
-      collisionDetails: collisionMessage
-    };
-
-    setLeaveRequests(prev => [newRequest, ...prev]);
-    addAuditLog(
-      'LEAVE_APPLICATION',
-      'LEAVE',
-      `${currentUser.name} submitted ${leave.totalDays}d leave application (${leave.startDate} to ${leave.endDate})`
-    );
-
-    return {
-      success: true,
-      hasCollision: isHighCollision,
-      collisionMessage
-    };
-  };
-
-  // Review Leave
-  const reviewLeaveRequest = async (id: string, status: 'APPROVED' | 'REJECTED', comment: string) => {
-    if (isBackendLive) {
-      await api.leaves.review(id, { status, reviewerComment: comment });
-    }
-
-    const now = new Date().toLocaleString();
-    setLeaveRequests(prev =>
-      prev.map(req => {
-        if (req.id === id) {
-          addAuditLog(
-            status === 'APPROVED' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
-            'LEAVE',
-            `${currentUser.name} reviewed request for ${req.employeeName}: ${status} - "${comment}"`,
-            { field: 'status', oldValue: 'PENDING', newValue: status }
-          );
-
-          return {
-            ...req,
-            status,
-            reviewedBy: `${currentUser.name} (${currentUser.role})`,
-            reviewerComment: comment,
-            reviewedAt: now
-          };
-        }
-        return req;
-      })
-    );
-  };
-
-  // Process Payroll Batch in Indian Rupees (₹)
-  const processPayrollBatch = (month: string) => {
-    const generatedSlips: Payslip[] = employees.map(emp => {
-      const basic = emp.salary?.basic || 65000;
-      const hra = emp.salary?.hra || Math.round(basic * 0.4);
-      const conveyance = emp.salary?.conveyanceAllowance || 1600;
-      const special = emp.salary?.specialAllowance || Math.round(basic * 0.2);
-      const medical = emp.salary?.medicalAllowance || 1250;
-      const bonus = Math.round(basic * 0.05);
-      const gross = basic + hra + conveyance + special + medical + bonus;
-      
-      const pf = emp.salary?.providentFund || Math.min(Math.round(basic * 0.12), 1800);
-      const pt = emp.salary?.professionalTax || 200;
-      const esi = emp.salary?.esi || 0;
-      const tds = emp.salary?.incomeTaxTDS || Math.round(basic * 0.05);
-      const ins = emp.salary?.medicalInsurance || 500;
-      const totDed = pf + pt + esi + tds + ins;
-      const net = gross - totDed;
-
-      return {
-        id: `slip-${month.toLowerCase().replace(' ', '-')}-${emp.employeeCode}`,
-        slipNumber: `PAY-${emp.employeeCode}-${month.replace(' ', '-').toUpperCase()}`,
-        employeeId: emp.id,
-        employeeName: `${emp.firstName} ${emp.lastName}`,
-        employeeCode: emp.employeeCode,
-        loginId: emp.loginId,
-        designation: emp.designation,
-        department: emp.department,
-        panNumber: emp.pan || 'ABCDE1234F',
-        bankAccount: emp.bankName ? `${emp.bankName} •••• ${(emp.bankAccountNo || '5678').slice(-4)}` : 'HDFC Bank •••• 5678',
-        ifscCode: emp.ifscCode || 'HDFC0001234',
-        uanNumber: emp.uanNumber || '100123456789',
-        month,
-        payDate: `${month} 31, 2026`,
-        workingDays: 26,
-        daysWorked: 26,
-        earnings: {
-          basic,
-          hra,
-          conveyance,
-          specialAllowance: special,
-          medicalAllowance: medical,
-          performanceBonus: bonus,
-          grossTotal: gross
-        },
-        deductions: {
-          employeePF: pf,
-          employerPF: pf,
-          professionalTax: pt,
-          incomeTaxTDS: tds,
-          esi,
-          healthInsurance: ins,
-          totalDeductions: totDed
-        },
-        netPayable: net,
-        netPayableWords: `₹${net.toLocaleString('en-IN')} (Indian Rupees Direct Transfer)`,
-        ctcAnnual: (gross + pf) * 12,
-        paymentStatus: 'PAID'
-      };
-    });
-
-    setPayslips(generatedSlips);
-    addAuditLog(
-      'PAYROLL_BATCH_EXECUTED',
-      'PAYROLL',
-      `Processed direct bank salary disbursement batch for ${employees.length} employees for ${month}.`
-    );
-  };
 
   const addAuditLog = (
     action: string,
@@ -769,13 +195,349 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
-  const unreadNotifsCount = notifications.filter(n => !n.read).length;
+  // Robust Login matching credentials or employee Login ID / email
+  const loginWithCredentials = async (loginIdOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanId = loginIdOrEmail.trim();
+
+    if (!cleanId) return { success: false, error: 'Please enter your Login ID or Email.' };
+    if (!pass || pass.length < 4) return { success: false, error: 'Please enter a valid password.' };
+
+    try {
+      const emailToSubmit = cleanId.includes('@') ? cleanId :
+        cleanId.startsWith('DFMAVA') ? 'admin@dayflow.com' :
+        cleanId.startsWith('DFSAJE') ? 'hr@dayflow.com' : 'employee@dayflow.com';
+
+      const res = await api.auth.login({ email: emailToSubmit, password: pass });
+      if (res && res.success && res.data?.token && res.data?.user) {
+        setCurrentUser(res.data.user);
+        setCurrentRole(res.data.user.role);
+        setIsAuthenticated(true);
+        setIsBackendLive(true);
+        return { success: true };
+      }
+    } catch {
+      // fallback
+    }
+
+    const matchedEmployee = employees.find(e =>
+      e.email.toLowerCase() === cleanId.toLowerCase() ||
+      (e.loginId && e.loginId.toUpperCase() === cleanId.toUpperCase()) ||
+      e.employeeCode.toUpperCase() === cleanId.toUpperCase()
+    );
+
+    if (matchedEmployee) {
+      const userRole: UserRole = matchedEmployee.designation.includes('VP') || matchedEmployee.designation.includes('Director') ? 'ADMIN' :
+        matchedEmployee.department === 'Human Resources' ? 'HR_OFFICER' : 'EMPLOYEE';
+
+      const userObj: User = {
+        id: `usr-${matchedEmployee.id}`,
+        email: matchedEmployee.email,
+        name: `${matchedEmployee.firstName} ${matchedEmployee.lastName}`,
+        role: userRole,
+        employeeId: matchedEmployee.id,
+        avatarUrl: matchedEmployee.avatarUrl,
+        designation: matchedEmployee.designation,
+        loginId: matchedEmployee.loginId
+      };
+
+      setCurrentUser(userObj);
+      setCurrentRole(userRole);
+      setIsAuthenticated(true);
+      return { success: true };
+    }
+
+    if (cleanId.toLowerCase().includes('admin') || cleanId.toUpperCase().startsWith('DFMAVA')) {
+      setCurrentUser(mockUsers.ADMIN);
+      setCurrentRole('ADMIN');
+      setIsAuthenticated(true);
+      return { success: true };
+    }
+
+    if (cleanId.toLowerCase().includes('hr') || cleanId.toUpperCase().startsWith('DFSAJE')) {
+      setCurrentUser(mockUsers.HR_OFFICER);
+      setCurrentRole('HR_OFFICER');
+      setIsAuthenticated(true);
+      return { success: true };
+    }
+
+    const empUser = {
+      ...mockUsers.EMPLOYEE,
+      email: cleanId.includes('@') ? cleanId : `${cleanId.toLowerCase()}@dayflow.com`,
+      loginId: cleanId
+    };
+    setCurrentUser(empUser);
+    setCurrentRole('EMPLOYEE');
+    setIsAuthenticated(true);
+    return { success: true };
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('df_auth');
+    setActiveTab('dashboard');
+  };
+
+  const addEmployee = (empData: Omit<Employee, 'id'>) => {
+    const newId = `emp-${Date.now()}`;
+    const autoLoginId = empData.loginId || generateEmployeeLoginId(
+      empData.firstName,
+      empData.lastName,
+      empData.joiningDate,
+      employees.length + 1,
+      'DF'
+    );
+
+    const newEmp: Employee = {
+      ...empData,
+      id: newId,
+      loginId: autoLoginId
+    };
+
+    setEmployees(prev => [newEmp, ...prev]);
+
+    const newSlip: Payslip = {
+      id: `ps-${Date.now()}`,
+      slipNumber: `PAY-2026-${(payslips.length + 1).toString().padStart(4, '0')}`,
+      employeeId: newId,
+      employeeName: `${empData.firstName} ${empData.lastName}`,
+      employeeCode: empData.employeeCode,
+      loginId: autoLoginId,
+      designation: empData.designation,
+      department: empData.department,
+      panNumber: empData.pan || 'ABCDE1234F',
+      bankAccount: empData.bankAccountNo || '50200012345678',
+      ifscCode: empData.ifscCode || 'HDFC0001234',
+      uanNumber: empData.uanNumber || '100123456789',
+      month: 'August 2026',
+      payDate: '2026-08-31',
+      workingDays: 22,
+      daysWorked: 22,
+      earnings: {
+        basic: empData.salary?.basic || 65000,
+        hra: empData.salary?.hra || 26000,
+        conveyance: empData.salary?.conveyanceAllowance || 1600,
+        specialAllowance: empData.salary?.specialAllowance || 13000,
+        performanceBonus: 0,
+        grossTotal: empData.salary?.grossSalary || 105600
+      },
+      deductions: {
+        employeePF: empData.salary?.providentFund || 1800,
+        professionalTax: empData.salary?.professionalTax || 200,
+        incomeTaxTDS: empData.salary?.incomeTaxTDS || 3250,
+        healthInsurance: empData.salary?.medicalInsurance || 500,
+        totalDeductions: (empData.salary?.providentFund || 1800) + (empData.salary?.professionalTax || 200) + (empData.salary?.incomeTaxTDS || 3250) + 500
+      },
+      netPayable: empData.salary?.netSalary || 99850,
+      netPayableWords: 'Rupees Ninety Nine Thousand Eight Hundred Fifty Only',
+      paymentStatus: 'PAID'
+    };
+
+    setPayslips(prev => [newSlip, ...prev]);
+
+    addAuditLog(
+      'EMPLOYEE_PROVISIONED',
+      'EMPLOYEE',
+      `Onboarded ${empData.firstName} ${empData.lastName} (${empData.designation}). Login ID: ${autoLoginId}`
+    );
+  };
+
+  const updateEmployee = (id: string, data: Partial<Employee>) => {
+    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...data } : e));
+    if (selectedEmployee && selectedEmployee.id === id) {
+      setSelectedEmployee(prev => prev ? { ...prev, ...data } : null);
+    }
+  };
+
+  const deleteEmployee = (id: string) => {
+    const toRemove = employees.find(e => e.id === id);
+    setEmployees(prev => prev.filter(e => e.id !== id));
+    setPayslips(prev => prev.filter(p => p.employeeId !== id));
+
+    if (toRemove) {
+      addAuditLog(
+        'EMPLOYEE_REMOVED',
+        'EMPLOYEE',
+        `Removed ${toRemove.firstName} ${toRemove.lastName} (${toRemove.loginId || toRemove.employeeCode}) from payroll records.`
+      );
+    }
+  };
+
+  const togglePunchClock = () => {
+    if (!isClockedIn) {
+      setIsClockedIn(true);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setPunchInTime(timeStr);
+      setStreakDays(prev => prev + 1);
+
+      const record: AttendanceRecord = {
+        id: `att-${Date.now()}`,
+        employeeId: currentUser.employeeId,
+        employeeName: currentUser.name,
+        employeeAvatar: currentUser.avatarUrl,
+        department: 'Engineering',
+        designation: currentUser.designation,
+        date: new Date().toISOString().split('T')[0],
+        checkIn: timeStr,
+        totalHours: 0,
+        status: 'PRESENT',
+        isLate: false,
+        networkType: punchNetworkType,
+        ipAddress: '192.168.1.104'
+      };
+      setAttendanceRecords(prev => [record, ...prev]);
+    } else {
+      setIsClockedIn(false);
+      setIsBreakActive(false);
+      setPunchInTime(null);
+    }
+  };
+
+  const toggleBreak = () => {
+    setIsBreakActive(prev => !prev);
+  };
+
+  const overrideAttendance = (id: string, timeOrStatus: any, reason?: string) => {
+    setAttendanceRecords(prev =>
+      prev.map(rec => {
+        if (rec.id === id) {
+          const updated = {
+            ...rec,
+            checkIn: typeof timeOrStatus === 'string' && timeOrStatus.includes(':') ? timeOrStatus : rec.checkIn,
+            status: typeof timeOrStatus === 'string' && !timeOrStatus.includes(':') ? (timeOrStatus as any) : rec.status,
+            remarks: reason || `Manually corrected by ${currentUser.name}`
+          };
+          return updated;
+        }
+        return rec;
+      })
+    );
+  };
+
+  const applyLeave = async (leave: { startDate: string; endDate: string; totalDays: number; leaveType: LeaveRequest['leaveType']; reason: string }) => {
+    const isHighCollision = false;
+
+    const newRequest: LeaveRequest = {
+      id: `leave-${Date.now()}`,
+      employeeId: currentUser.employeeId,
+      employeeName: currentUser.name,
+      employeeAvatar: currentUser.avatarUrl,
+      department: 'Engineering',
+      designation: currentUser.designation,
+      leaveType: leave.leaveType,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      totalDays: leave.totalDays,
+      reason: leave.reason,
+      status: 'PENDING',
+      appliedDate: new Date().toISOString().split('T')[0],
+      hasCollisionWarning: isHighCollision,
+      collisionDetails: undefined
+    };
+
+    setLeaveRequests(prev => [newRequest, ...prev]);
+
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}`,
+        title: '🗓️ Leave Request Submitted',
+        message: `${currentUser.name} applied for ${leave.totalDays} day(s) (${leave.leaveType.replace('_', ' ')}).`,
+        timestamp: 'Just now',
+        type: 'INFO',
+        read: false,
+        linkTab: 'leaves'
+      },
+      ...prev
+    ]);
+
+    addAuditLog(
+      'LEAVE_APPLICATION',
+      'LEAVE',
+      `${currentUser.name} submitted ${leave.totalDays}d leave application (${leave.startDate} to ${leave.endDate})`
+    );
+
+    return {
+      success: true,
+      hasCollision: isHighCollision,
+      collisionMessage: null
+    };
+  };
+
+  const reviewLeaveRequest = async (id: string, status: 'APPROVED' | 'REJECTED', comment: string = '') => {
+    const now = new Date().toLocaleString();
+    setLeaveRequests(prev =>
+      prev.map(req => {
+        if (req.id === id) {
+          return {
+            ...req,
+            status,
+            reviewedBy: `${currentUser.name} (${currentUser.role})`,
+            reviewerComment: comment,
+            reviewedAt: now
+          };
+        }
+        return req;
+      })
+    );
+  };
+
+  const processPayrollBatch = (month: string) => {
+    const refreshedSlips: Payslip[] = employees.map((emp, i) => {
+      const calc = emp.salary || calcIndianPayroll(65000);
+      return {
+        id: `ps-${month}-${emp.id}`,
+        slipNumber: `PAY-2026-${(i + 1).toString().padStart(4, '0')}`,
+        employeeId: emp.id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        employeeCode: emp.employeeCode,
+        loginId: emp.loginId,
+        designation: emp.designation,
+        department: emp.department,
+        panNumber: emp.pan || 'ABCDE1234F',
+        bankAccount: emp.bankAccountNo || '50200012345678',
+        ifscCode: emp.ifscCode || 'HDFC0001234',
+        uanNumber: emp.uanNumber || '100123456789',
+        month,
+        payDate: '2026-08-31',
+        workingDays: 22,
+        daysWorked: 22,
+        earnings: {
+          basic: calc.basic,
+          hra: calc.hra,
+          conveyance: calc.conveyanceAllowance || 1600,
+          specialAllowance: calc.specialAllowance,
+          performanceBonus: 2500,
+          grossTotal: calc.grossSalary + 2500
+        },
+        deductions: {
+          employeePF: calc.providentFund,
+          professionalTax: calc.professionalTax,
+          incomeTaxTDS: calc.incomeTaxTDS || 3250,
+          healthInsurance: calc.medicalInsurance || 500,
+          totalDeductions: calc.providentFund + calc.professionalTax + (calc.incomeTaxTDS || 3250) + 500
+        },
+        netPayable: calc.netSalary + 2500,
+        netPayableWords: 'Salary processed for direct bank transfer',
+        paymentStatus: 'PAID'
+      };
+    });
+
+    setPayslips(refreshedSlips);
+    addAuditLog(
+      'PAYROLL_BATCH_EXECUTED',
+      'PAYROLL',
+      `Executed electronic salary disbursement batch for ${employees.length} employees for ${month}.`
+    );
+  };
+
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
+
   const markAllNotificationsAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
+
+  const unreadNotifsCount = notifications.filter(n => !n.read).length;
 
   return (
     <HRMSContext.Provider
@@ -783,6 +545,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         currentRole,
         setCurrentRole,
         currentUser,
+        setCurrentUser,
         isAuthenticated,
         isBackendLive,
         authError,
@@ -843,8 +606,7 @@ export const HRMSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useHRMS = () => {
   const context = useContext(HRMSContext);
-  if (!context) {
-    throw new Error('useHRMS must be used within an HRMSProvider');
-  }
+  if (!context) throw new Error('useHRMS must be used within HRMSProvider');
   return context;
 };
+export default HRMSContext;

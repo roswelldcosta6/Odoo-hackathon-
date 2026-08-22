@@ -1,20 +1,22 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   X,
   Printer,
-  Download,
+  ArrowLeft,
   CheckCircle2,
-  ShieldCheck,
-  Building,
   QrCode
 } from 'lucide-react';
 import { useHRMS } from '../../context/HRMSContext';
-import { Payslip } from '../../types';
 
 export const PayslipModal: React.FC = () => {
-  const { selectedPayslip, isPayslipModalOpen, setIsPayslipModalOpen } = useHRMS();
+  const { selectedPayslip, isPayslipModalOpen, setIsPayslipModalOpen, setSelectedPayslip } = useHRMS();
 
   if (!isPayslipModalOpen || !selectedPayslip) return null;
+
+  const handleClose = () => {
+    setIsPayslipModalOpen(false);
+    setSelectedPayslip(null);
+  };
 
   const handlePrint = () => {
     window.print();
@@ -29,12 +31,14 @@ export const PayslipModal: React.FC = () => {
         
         {/* Modal Top Actions (Hidden in Print) */}
         <div className="no-print bg-surface-bg border-b border-surface-border p-4 px-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-slate-dark text-sm">Official Indian Payslip (₹ INR)</span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent-mint-light text-accent-mint border border-accent-mint/30">
-              Verified & Signed
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-surface-border text-slate-dark hover:bg-brand-light hover:text-brand-blue font-bold text-xs shadow-sm transition-all"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Payroll</span>
+          </button>
 
           <div className="flex items-center gap-2">
             <button
@@ -45,8 +49,9 @@ export const PayslipModal: React.FC = () => {
               <span>Print / Save PDF</span>
             </button>
             <button
-              onClick={() => setIsPayslipModalOpen(false)}
+              onClick={handleClose}
               className="p-1.5 rounded-lg text-slate-muted hover:text-slate-dark hover:bg-surface-border transition-colors"
+              title="Close"
             >
               <X className="w-4 h-4" />
             </button>
@@ -201,10 +206,6 @@ export const PayslipModal: React.FC = () => {
                   <span className="font-mono font-semibold">₹{deductions.incomeTaxTDS.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between pt-1">
-                  <span className="text-slate-muted">ESI Contribution</span>
-                  <span className="font-mono font-semibold">₹{(deductions.esi || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between pt-1">
                   <span className="text-slate-muted">Group Health Insurance</span>
                   <span className="font-mono font-semibold">₹{deductions.healthInsurance.toLocaleString('en-IN')}</span>
                 </div>
@@ -260,3 +261,5 @@ export const PayslipModal: React.FC = () => {
     </div>
   );
 };
+
+export default PayslipModal;
